@@ -1,0 +1,111 @@
+spring:
+  application:
+    name: workflow-example-app
+
+# Default profile: In-memory storage for quick testing
+workflow:
+  enabled: true
+  storage:
+    type: memory
+  event-handler:
+    enabled: true
+  sla:
+    enabled: true
+
+logging:
+  level:
+    com.anode.workflow: INFO
+    com.anode.workflow.example: DEBUG
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level %logger{36} - %msg%n"
+
+server:
+  port: 8080
+
+---
+# Development profile with file storage
+spring:
+  config:
+    activate:
+      on-profile: dev
+
+workflow:
+  storage:
+    type: file
+    file-path: ./workflow-data
+
+logging:
+  level:
+    com.anode.workflow: DEBUG
+
+---
+# Production profile with JPA/PostgreSQL storage
+spring:
+  config:
+    activate:
+      on-profile: prod
+
+  datasource:
+    url: jdbc:postgresql://localhost:5432/workflow_db
+    username: workflow_user
+    password: workflow_password
+    driver-class-name: org.postgresql.Driver
+    hikari:
+      maximum-pool-size: 10
+      minimum-idle: 5
+      connection-timeout: 30000
+
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: false
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+        format_sql: true
+        jdbc:
+          batch_size: 20
+
+workflow:
+  storage:
+    type: jpa
+  jpa:
+    enabled: true
+    auto-create-schema: true
+
+logging:
+  level:
+    com.anode.workflow: INFO
+    org.hibernate.SQL: DEBUG
+
+---
+# Test profile with H2 in-memory database
+spring:
+  config:
+    activate:
+      on-profile: test
+
+  datasource:
+    url: jdbc:h2:mem:testdb
+    driver-class-name: org.h2.Driver
+    username: sa
+    password:
+
+  jpa:
+    hibernate:
+      ddl-auto: create-drop
+    show-sql: true
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.H2Dialect
+
+  h2:
+    console:
+      enabled: true
+
+workflow:
+  storage:
+    type: jpa
+  jpa:
+    enabled: true
+    auto-create-schema: true

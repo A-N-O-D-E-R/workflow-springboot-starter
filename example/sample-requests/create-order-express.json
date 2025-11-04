@@ -1,0 +1,28 @@
+{
+  "orderId": "ORD-2025-002",
+  "customerId": "CUST-67890",
+  "customerEmail": "jane.smith@example.com",
+  "items": [
+    {
+      "productId": "PROD-003",
+      "productName": "Mechanical Keyboard",
+      "quantity": 1,
+      "unitPrice": 149.99
+    }
+  ],
+  "paymentMethod": "CREDIT_CARD",
+  "paymentInfo": {
+    "amount": 149.99,
+    "cardLastFourDigits": "5678"
+  },
+  "shippingInfo": {
+    "recipientName": "Jane Smith",
+    "addressLine1": "456 Oak Avenue",
+    "city": "New York",
+    "state": "NY",
+    "postalCode": "10001",
+    "country": "USA",
+    "shippingMethod": "EXPRESS"
+  },
+  "useRouting": true
+}
