@@ -1,6 +1,6 @@
 # Workflow Spring Boot Starter
 
-Spring Boot starter for the OpenEvolve Workflow Engine, providing auto-configuration and seamless integration with Spring Boot applications.
+Spring Boot starter for the Workflow Engine, providing auto-configuration and seamless integration with Spring Boot applications.
 
 ## Features
 

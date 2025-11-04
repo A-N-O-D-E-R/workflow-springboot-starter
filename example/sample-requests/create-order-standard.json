@@ -1,0 +1,35 @@
+{
+  "orderId": "ORD-2025-001",
+  "customerId": "CUST-12345",
+  "customerEmail": "john.doe@example.com",
+  "items": [
+    {
+      "productId": "PROD-001",
+      "productName": "Laptop Computer",
+      "quantity": 1,
+      "unitPrice": 999.99
+    },
+    {
+      "productId": "PROD-002",
+      "productName": "Wireless Mouse",
+      "quantity": 2,
+      "unitPrice": 25.00
+    }
+  ],
+  "paymentMethod": "CREDIT_CARD",
+  "paymentInfo": {
+    "amount": 1049.99,
+    "cardLastFourDigits": "1234"
+  },
+  "shippingInfo": {
+    "recipientName": "John Doe",
+    "addressLine1": "123 Main Street",
+    "addressLine2": "Apt 4B",
+    "city": "San Francisco",
+    "state": "CA",
+    "postalCode": "94102",
+    "country": "USA",
+    "shippingMethod": "STANDARD"
+  },
+  "useRouting": true
+}

@@ -1,0 +1,28 @@
+{
+  "orderId": "ORD-2025-003",
+  "customerId": "CUST-11111",
+  "customerEmail": "urgent.order@example.com",
+  "items": [
+    {
+      "productId": "PROD-001",
+      "productName": "Laptop Computer",
+      "quantity": 5,
+      "unitPrice": 999.99
+    }
+  ],
+  "paymentMethod": "CREDIT_CARD",
+  "paymentInfo": {
+    "amount": 4999.95,
+    "cardLastFourDigits": "9999"
+  },
+  "shippingInfo": {
+    "recipientName": "Business Customer",
+    "addressLine1": "789 Corporate Blvd",
+    "city": "Austin",
+    "state": "TX",
+    "postalCode": "78701",
+    "country": "USA",
+    "shippingMethod": "OVERNIGHT"
+  },
+  "useRouting": true
+}

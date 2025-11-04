@@ -1,0 +1,26 @@
+# Docker profile for containerized deployment
+spring:
+  datasource:
+    url: jdbc:postgresql://${DB_HOST:postgres}:${DB_PORT:5432}/${DB_NAME:workflow_db}
+    username: ${DB_USER:workflow_user}
+    password: ${DB_PASSWORD:workflow_password}
+    driver-class-name: org.postgresql.Driver
+
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: false
+
+workflow:
+  storage:
+    type: jpa
+  jpa:
+    enabled: true
+    auto-create-schema: true
+
+server:
+  port: ${SERVER_PORT:8080}
+
+logging:
+  level:
+    com.anode.workflow: ${LOG_LEVEL:INFO}
