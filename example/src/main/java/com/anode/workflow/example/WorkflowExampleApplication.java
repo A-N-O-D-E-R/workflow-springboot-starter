@@ -4,15 +4,7 @@ import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 
 /**
- * Main application class for Workflow Example Application
- *
- * This example demonstrates:
- * - Order processing workflow with multiple tasks
- * - Conditional routing based on shipping method
- * - Event handling for audit logging
- * - SLA milestone tracking
- * - REST API for workflow operations
- * - Multiple storage backend options
+ * Simple example application demonstrating the Workflow Spring Boot Starter.
  */
 @SpringBootApplication
 public class WorkflowExampleApplication {

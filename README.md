@@ -1,21 +1,19 @@
 # Workflow Spring Boot Starter
 
-Spring Boot starter for the Workflow Engine, providing auto-configuration and seamless integration with Spring Boot applications.
+Spring Boot starter for OpenEvolve Workflow Engine with auto-configuration support.
 
-## Features
+## Overview
 
-- ✅ **Auto-configuration** - Zero-configuration setup for most use cases
-- ✅ **Multiple storage backends** - JPA, in-memory, file-based, or custom
-- ✅ **Spring Integration** - Native Spring Boot beans and dependency injection
-- ✅ **Type-safe configuration** - Full IDE autocomplete support via `application.properties`
-- ✅ **Production-ready** - Transaction management, connection pooling, and error handling
-- ✅ **Extensible** - Easy to customize with your own beans
+This starter provides seamless integration of the OpenEvolve Workflow Engine into Spring Boot applications with zero-configuration defaults and flexible customization options.
 
-## Quick Start
+## Requirements
 
-### 1. Add Dependency
+- Java 17+
+- Spring Boot 3.2.0+
 
-Add the starter to your `pom.xml`:
+## Installation
+
+Add the dependency to your `pom.xml`:
 
 ```xml
 <dependency>
@@ -25,45 +23,37 @@ Add the starter to your `pom.xml`:
 </dependency>
 ```
 
-### 2. Configure (Optional)
+## Quick Start
 
-Add to `application.yml`:
+The starter works out-of-the-box with JPA storage:
 
 ```yaml
-workflow:
-  enabled: true
-  storage:
-    type: jpa  # or memory, file, custom
+# application.yml - minimal configuration
+spring:
+  datasource:
+    url: jdbc:h2:mem:workflowdb
+    driver-class-name: org.h2.Driver
 ```
 
-### 3. Use in Your Code
-
-```java
-@Service
-public class OrderService {
-
-    @Autowired
-    private RuntimeService runtimeService;
-
-    public void processOrder(String orderId) {
-        WorkflowContext context = runtimeService.startCase(
-            orderId,
-            workflowDefinition,
-            variables,
-            null
-        );
-    }
-}
-```
-
-That's it! The workflow engine is now fully integrated with your Spring Boot application.
+**See the [example application](./example) for a complete working demo.**
 
 ## Configuration
 
-### Storage Configuration
+### Minimal config :
+```yaml
+workflow:
+  storage:
+    type: memory # One Storage 
+```
 
-#### JPA Storage (Production)
+If there is no other config will fall back on default config : 
+- Default SlaQueueManager : do nothing
+- Default EventHandler : do nothing 
+- Default WorkflowComponantFactory : will look for the @component name is equal to compName in workflow definition
 
+### Storage Options
+
+**JPA Storage** (default):
 ```yaml
 workflow:
   storage:
@@ -71,40 +61,16 @@ workflow:
   jpa:
     enabled: true
     entity-manager-factory-ref: entityManagerFactory
-    auto-create-schema: false
 ```
 
-**Prerequisites:**
-- Spring Data JPA dependency
-- Database configuration (PostgreSQL, MySQL, etc.)
-- EntityManagerFactory bean configured
-
-**Database Setup:**
-
-```yaml
-spring:
-  datasource:
-    url: jdbc:postgresql://localhost:5432/workflow_db
-    username: workflow_user
-    password: your_password
-  jpa:
-    hibernate:
-      ddl-auto: update
-    show-sql: false
-```
-
-#### Memory Storage (Development/Testing)
-
+**In-Memory Storage** (for testing):
 ```yaml
 workflow:
   storage:
     type: memory
 ```
 
-**⚠️ WARNING:** All data is lost when the application restarts.
-
-#### File Storage (Development)
-
+**File-Based Storage**:
 ```yaml
 workflow:
   storage:
@@ -112,425 +78,97 @@ workflow:
     file-path: ./workflow-data
 ```
 
-**⚠️ WARNING:** Not suitable for production use.
-
-#### Custom Storage
-
-```yaml
-workflow:
-  storage:
-    type: custom
-    custom-bean-name: myCustomStorage
-```
-
-Then provide your own bean:
-
-```java
-@Bean
-public CommonService myCustomStorage() {
-    return new MyCustomStorageImpl();
-}
-```
-
-### Event Handler Configuration
-
-#### Default Event Handler
-
-```yaml
-workflow:
-  event-handler:
-    enabled: true
-```
-
-#### Custom Event Handler
-
-```java
-@Component
-public class MyEventHandler implements EventHandler {
-    @Override
-    public void onWorkflowStart(String caseId) {
-        // Your logic here
-    }
-
-    @Override
-    public void onWorkflowComplete(String caseId) {
-        // Your logic here
-    }
-
-    // Implement other methods...
-}
-```
-
-### SLA Configuration
+### Component Configuration
 
 ```yaml
 workflow:
   sla:
-    enabled: true
-    queue-manager-bean: mySlaQueueManager
+    enabled: true           # Enable SLA queue management
+  event:
+    enabled: true           # Enable event handlers
+  factory:
+    enabled: true           # Enable component factory
 ```
 
-Provide your SLA queue manager:
+## Custom Components
+
+### Custom Event Handler
 
 ```java
 @Component
-public class MySlaQueueManager implements SlaQueueManager {
+@WorkflowEventHandler
+public class CustomEventHandler implements EventHandler {
     @Override
-    public void scheduleMilestone(String caseId, String milestoneName, long dueTimeMillis) {
-        // Schedule milestone check
-    }
-
-    @Override
-    public void cancelMilestone(String caseId, String milestoneName) {
-        // Cancel milestone
+    public void handleEvent(WorkflowEvent event) {
+        // Your event handling logic
     }
 }
 ```
-
-## Complete Configuration Reference
-
-```yaml
-workflow:
-  # Enable or disable auto-configuration
-  enabled: true
-
-  storage:
-    # Storage type: jpa, memory, file, custom
-    type: jpa
-    # File path for file-based storage
-    file-path: ./workflow-data
-    # Custom storage bean name
-    custom-bean-name: myCustomStorage
-
-  jpa:
-    # Enable JPA storage
-    enabled: true
-    # EntityManagerFactory bean reference
-    entity-manager-factory-ref: entityManagerFactory
-    # Auto-create database schema
-    auto-create-schema: false
-
-  event-handler:
-    # Enable default event handler
-    enabled: true
-    # Custom event handler bean name
-    bean-name: myEventHandler
-
-  sla:
-    # Enable SLA queue manager
-    enabled: false
-    # Custom SLA queue manager bean name
-    queue-manager-bean: mySlaQueueManager
-```
-
-## Advanced Usage
 
 ### Custom Component Factory
 
-Create custom workflow components:
+```java
+@Component
+@WorkflowComponentFactory
+public class CustomComponentFactory implements WorkflowComponantFactory {
+    @Override
+    public Object getObject(WorkflowContext ctx) {
+        // Your factory logic
+    }
+}
+```
+
+### Custom SLA Queue Manager
 
 ```java
 @Component
-public class MyComponentFactory implements WorkflowComponantFactory {
-    @Override
-    public InvokableTask getTask(String componentName) {
-        return switch (componentName) {
-            case "sendEmail" -> new SendEmailTask();
-            case "validateOrder" -> new ValidateOrderTask();
-            default -> throw new IllegalArgumentException("Unknown task: " + componentName);
-        };
-    }
-
-    @Override
-    public InvokableRoute getRoute(String componentName) {
-        return switch (componentName) {
-            case "approvalDecision" -> new ApprovalDecisionRoute();
-            default -> throw new IllegalArgumentException("Unknown route: " + componentName);
-        };
-    }
+@SlaQueueManagerComponent
+public class CustomSlaQueueManager implements SlaQueueManager {
+    // Your SLA management logic
 }
 ```
 
-### Transaction Management
+## Features
 
-The starter automatically integrates with Spring's transaction management:
+- Auto-configuration for workflow engine components
+- Multiple storage backends (JPA, Memory, File)
+- Flexible event handling system
+- SLA monitoring support
+- Custom component factory support
+- Spring Boot configuration properties support
 
-```java
-@Service
-@Transactional
-public class WorkflowService {
+## Building
 
-    @Autowired
-    private RuntimeService runtimeService;
-
-    public void executeWorkflow(String caseId) {
-        // All workflow operations are automatically transactional
-        WorkflowContext context = runtimeService.startCase(...);
-        runtimeService.resumeCase(caseId);
-    }
-}
-```
-
-### Multi-Database Support
-
-If you need workflow data in a separate database:
-
-```java
-@Configuration
-public class WorkflowDataSourceConfig {
-
-    @Bean
-    @ConfigurationProperties(prefix = "workflow.datasource")
-    public DataSource workflowDataSource() {
-        return DataSourceBuilder.create().build();
-    }
-
-    @Bean
-    public LocalContainerEntityManagerFactoryBean workflowEntityManagerFactory(
-            @Qualifier("workflowDataSource") DataSource dataSource) {
-        // Configure entity manager factory
-    }
-}
-```
-
-Then configure:
-
-```yaml
-workflow:
-  jpa:
-    entity-manager-factory-ref: workflowEntityManagerFactory
-  datasource:
-    url: jdbc:postgresql://localhost:5432/workflow_db
-    username: workflow_user
-    password: workflow_pass
-```
-
-## Example Applications
-
-### Simple Order Processing
-
-```java
-@SpringBootApplication
-public class OrderProcessingApp {
-    public static void main(String[] args) {
-        SpringApplication.run(OrderProcessingApp.class, args);
-    }
-}
-
-@Service
-public class OrderWorkflowService {
-
-    @Autowired
-    private RuntimeService runtimeService;
-
-    @Autowired
-    private WorkflowDefinitionRepository workflowRepo;
-
-    public void processNewOrder(Order order) {
-        // Load workflow definition
-        WorkflowDefinition orderWorkflow = workflowRepo.findByName("orderProcessing");
-
-        // Set variables
-        WorkflowVariables variables = new WorkflowVariables();
-        variables.set("orderId", order.getId());
-        variables.set("amount", order.getTotalAmount());
-        variables.set("customerId", order.getCustomerId());
-
-        // Start workflow
-        WorkflowContext context = runtimeService.startCase(
-            order.getId(),
-            orderWorkflow,
-            variables,
-            null
-        );
-
-        logger.info("Started order processing workflow for order: {}", order.getId());
-    }
-
-    public void resumeOrder(String orderId) {
-        runtimeService.resumeCase(orderId);
-    }
-}
-```
-
-### With Custom Tasks
-
-```java
-@Component
-public class SendEmailTask implements InvokableTask {
-
-    @Autowired
-    private EmailService emailService;
-
-    @Override
-    public TaskResponse executeTask(WorkflowContext context, Task task) {
-        String recipientEmail = context.getVariable("customerEmail");
-        String orderId = context.getVariable("orderId");
-
-        emailService.sendOrderConfirmation(recipientEmail, orderId);
-
-        return TaskResponse.success("emailSent", "Email sent successfully");
-    }
-}
+```bash
+mvn clean install
 ```
 
 ## Testing
 
-### Unit Tests
-
-```java
-@SpringBootTest
-class WorkflowServiceTest {
-
-    @Autowired
-    private RuntimeService runtimeService;
-
-    @Test
-    void testOrderWorkflow() {
-        // Use in-memory storage for tests
-        WorkflowDefinition workflow = createTestWorkflow();
-        WorkflowVariables vars = new WorkflowVariables();
-
-        WorkflowContext context = runtimeService.startCase(
-            "TEST-001",
-            workflow,
-            vars,
-            null
-        );
-
-        assertThat(context.isCaseCompleted()).isTrue();
-    }
-}
+```bash
+mvn test
 ```
 
-### Integration Tests
+## Example Application
 
-```java
-@SpringBootTest
-@Testcontainers
-class WorkflowIntegrationTest {
+A complete working example is available in the [example](./example) directory. The example demonstrates:
 
-    @Container
-    static PostgreSQLContainer<?> postgres = new PostgreSQLContainer<>("postgres:14");
+- Basic workflow task execution
+- REST API integration
+- In-memory storage configuration
+- Order processing workflow
 
-    @DynamicPropertySource
-    static void properties(DynamicPropertyRegistry registry) {
-        registry.add("spring.datasource.url", postgres::getJdbcUrl);
-        registry.add("spring.datasource.username", postgres::getUsername);
-        registry.add("spring.datasource.password", postgres::getPassword());
-    }
+To run the example:
 
-    @Test
-    void testWorkflowPersistence() {
-        // Test with real database
-    }
-}
+```bash
+# Build and install the starter
+mvn clean install
+
+# Run the example application
+cd example
+mvn spring-boot:run
 ```
-
-### Test Configuration
-
-For tests, use memory storage:
-
-```yaml
-# application-test.yml
-workflow:
-  storage:
-    type: memory
-```
-
-## Troubleshooting
-
-### Auto-configuration not working
-
-1. Check that starter is in dependencies
-2. Verify `workflow.enabled=true` in configuration
-3. Enable debug logging:
-   ```yaml
-   logging:
-     level:
-       com.anode.workflow: DEBUG
-   ```
-
-### Database connection issues
-
-1. Verify database is running
-2. Check connection URL, username, password
-3. Ensure database user has proper permissions
-4. Check if schema exists (or enable auto-create)
-
-### Bean not found errors
-
-If you get "No qualifying bean" errors:
-
-1. Ensure auto-configuration is enabled
-2. Check component scanning includes workflow packages
-3. Verify bean creation order (use `@DependsOn` if needed)
-
-## Performance Tuning
-
-### Connection Pooling
-
-```yaml
-spring:
-  datasource:
-    hikari:
-      maximum-pool-size: 10
-      minimum-idle: 5
-      connection-timeout: 30000
-```
-
-### JPA Optimization
-
-```yaml
-spring:
-  jpa:
-    properties:
-      hibernate:
-        jdbc:
-          batch_size: 20
-        order_inserts: true
-        order_updates: true
-```
-
-## Migration Guide
-
-### From Manual Configuration
-
-Before:
-```java
-@Configuration
-public class WorkflowConfig {
-    @Bean
-    public RuntimeService runtimeService() {
-        CommonService dao = new MemoryDao();
-        WorkflowComponantFactory factory = new MyComponentFactory();
-        return WorkflowService.instance().getRunTimeService(dao, factory, null, null);
-    }
-}
-```
-
-After:
-```java
-// Just add the starter dependency - auto-configuration handles everything!
-
-@Component
-public class MyComponentFactory implements WorkflowComponantFactory {
-    // Your implementation
-}
-```
-
-## Support
-
-- [Workflow Engine Documentation](../workflow/docs/)
-- [GitHub Issues](https://github.com/your-org/workflow-springboot-starter/issues)
-- [Spring Boot Reference](https://spring.io/projects/spring-boot)
 
 ## License
 
-Same as the workflow engine project.
-
----
-
-**Version:** 0.0.1
-**Compatible with:** Spring Boot 3.x, Java 17+
-**Workflow Engine Version:** 0.0.1
+See LICENSE file for details.

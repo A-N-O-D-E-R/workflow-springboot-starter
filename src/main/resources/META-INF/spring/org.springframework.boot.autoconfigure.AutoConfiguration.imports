@@ -1,1 +1,12 @@
-com.anode.workflow.spring.autoconfigure.WorkflowAutoConfiguration
+# Workflow starter auto-configuration
+com.anode.workflow.spring.autoconfigure.configuration.WorkflowAutoConfiguration
+
+# Storage auto-configurations
+com.anode.workflow.spring.autoconfigure.storage.JpaStorageConfiguration
+com.anode.workflow.spring.autoconfigure.storage.MemoryStorageConfiguration
+com.anode.workflow.spring.autoconfigure.storage.FileStorageConfiguration
+
+# Workflow component auto-configurations
+com.anode.workflow.spring.autoconfigure.configuration.WorkflowComponentFactoryAutoConfiguration
+com.anode.workflow.spring.autoconfigure.configuration.WorkflowEventHandlerAutoConfiguration
+com.anode.workflow.spring.autoconfigure.configuration.SlaQueueManagerAutoConfiguration
