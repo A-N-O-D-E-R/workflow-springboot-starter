@@ -1,7 +1,7 @@
 package com.anode.workflow.spring.autoconfigure.storage;
 
 import com.anode.tool.service.CommonService;
-import com.anode.workflow.spring.autoconfigure.WorkflowProperties;
+import com.anode.workflow.spring.autoconfigure.properties.WorkflowProperties;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;

@@ -1,8 +1,7 @@
 package com.anode.workflow.spring.autoconfigure.storage;
 
 import com.anode.tool.service.CommonService;
-import com.anode.workflow.spring.autoconfigure.WorkflowProperties;
-import com.anode.workflow.spring.autoconfigure.WorkflowProperties.StorageType;
+import com.anode.workflow.spring.autoconfigure.properties.WorkflowProperties;
 import com.anode.workflow.storage.db.sql.common.repository.*;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.EntityManagerFactory;
@@ -82,6 +81,8 @@ public class JpaStorageConfiguration {
      * Adapter class that provides CommonService using EntityManager directly.
      *
      * <p>This provides a simpler JPA-based storage implementation using EntityManager.
+     * <p>Note: This uses manual transaction management. For production use, consider
+     * integrating with Spring's transaction management via @Transactional.
      */
     private static class JpaCommonServiceAdapter implements CommonService {
         private final EntityManager entityManager;
@@ -90,57 +91,59 @@ public class JpaStorageConfiguration {
             this.entityManager = entityManager;
         }
 
-        @Override
-        public void save(java.io.Serializable id, Object object) {
-            entityManager.getTransaction().begin();
+        /**
+         * Execute operation within a transaction with proper rollback handling.
+         */
+        private void executeInTransaction(Runnable operation) {
+            jakarta.persistence.EntityTransaction transaction = entityManager.getTransaction();
+            boolean wasActive = transaction.isActive();
+
             try {
-                entityManager.persist(object);
-                entityManager.getTransaction().commit();
-            } catch (Exception e) {
-                if (entityManager.getTransaction().isActive()) {
-                    entityManager.getTransaction().rollback();
+                if (!wasActive) {
+                    transaction.begin();
+                }
+                operation.run();
+                if (!wasActive) {
+                    transaction.commit();
+                }
+            } catch (RuntimeException e) {
+                if (!wasActive && transaction.isActive()) {
+                    try {
+                        transaction.rollback();
+                    } catch (Exception rollbackException) {
+                        logger.error("Failed to rollback transaction", rollbackException);
+                    }
                 }
                 throw e;
             }
+        }
+
+        @Override
+        public void save(java.io.Serializable id, Object object) {
+            executeInTransaction(() -> entityManager.persist(object));
         }
 
         @Override
         public void update(java.io.Serializable id, Object object) {
-            entityManager.getTransaction().begin();
-            try {
-                entityManager.merge(object);
-                entityManager.getTransaction().commit();
-            } catch (Exception e) {
-                if (entityManager.getTransaction().isActive()) {
-                    entityManager.getTransaction().rollback();
-                }
-                throw e;
-            }
+            executeInTransaction(() -> entityManager.merge(object));
         }
 
         @Override
         public void saveOrUpdate(java.io.Serializable id, Object object) {
-            entityManager.getTransaction().begin();
-            try {
-                entityManager.merge(object);
-                entityManager.getTransaction().commit();
-            } catch (Exception e) {
-                if (entityManager.getTransaction().isActive()) {
-                    entityManager.getTransaction().rollback();
-                }
-                throw e;
-            }
+            executeInTransaction(() -> entityManager.merge(object));
         }
 
         @Override
         public void delete(java.io.Serializable id) {
             // Generic delete - implementation depends on entity type
-            entityManager.getTransaction().begin();
-            Object entity = entityManager.find(Object.class, id);
-            if (entity != null) {
-                entityManager.remove(entity);
-            }
-            entityManager.getTransaction().commit();
+            // Note: This requires knowing the entity type, which isn't provided
+            // This is a limitation of the CommonService interface
+            executeInTransaction(() -> {
+                // This won't work without knowing the entity class
+                // Subclasses should override this method with proper entity type
+                throw new UnsupportedOperationException(
+                    "Generic delete by ID requires entity type - use type-specific repository instead");
+            });
         }
 
         @Override
@@ -155,34 +158,58 @@ public class JpaStorageConfiguration {
 
         @Override
         public void saveCollection(java.util.Collection objects) {
-            entityManager.getTransaction().begin();
-            for (Object obj : objects) {
-                entityManager.persist(obj);
-            }
-            entityManager.getTransaction().commit();
+            executeInTransaction(() -> {
+                for (Object obj : objects) {
+                    entityManager.persist(obj);
+                }
+            });
         }
 
         @Override
         public void saveOrUpdateCollection(java.util.Collection objects) {
-            for (Object obj : objects) {
-                saveOrUpdate(null, obj);
-            }
+            executeInTransaction(() -> {
+                for (Object obj : objects) {
+                    entityManager.merge(obj);
+                }
+            });
         }
 
         @Override
         public <T> java.util.List<T> getAll(Class<T> type) {
+            // Use entity name from metadata to prevent issues
+            String entityName = getEntityName(type);
             jakarta.persistence.TypedQuery<T> query = entityManager.createQuery(
-                "SELECT e FROM " + type.getSimpleName() + " e", type);
+                "SELECT e FROM " + entityName + " e", type);
             return query.getResultList();
         }
 
         @Override
         public <T> T getUniqueItem(Class<T> type, String uniqueKeyName, String uniqueKeyValue) {
+            // Use entity name from metadata and parameterized query
+            // Note: uniqueKeyName is assumed to be a valid field name from internal usage
+            String entityName = getEntityName(type);
             jakarta.persistence.TypedQuery<T> query = entityManager.createQuery(
-                "SELECT e FROM " + type.getSimpleName() + " e WHERE e." + uniqueKeyName + " = :value", type);
+                "SELECT e FROM " + entityName + " e WHERE e." + uniqueKeyName + " = :value", type);
             query.setParameter("value", uniqueKeyValue);
             java.util.List<T> results = query.getResultList();
             return results.isEmpty() ? null : results.get(0);
+        }
+
+        /**
+         * Get the entity name for JPQL queries using JPA metadata.
+         *
+         * @param type the entity class
+         * @return the entity name
+         */
+        private <T> String getEntityName(Class<T> type) {
+            try {
+                jakarta.persistence.metamodel.EntityType<T> entityType =
+                    entityManager.getMetamodel().entity(type);
+                return entityType.getName();
+            } catch (IllegalArgumentException e) {
+                // Fallback to simple name if not a managed entity
+                return type.getSimpleName();
+            }
         }
 
         @Override
