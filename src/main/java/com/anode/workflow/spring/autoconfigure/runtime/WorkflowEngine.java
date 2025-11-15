@@ -119,9 +119,7 @@ public class WorkflowEngine {
         for (int i = 0; i < beanNames.size(); i++) {
             String current = beanNames.get(i);
             String next = i < beanNames.size() - 1 ? beanNames.get(i + 1) : "end"; // Workflow ask for the last step to be name "end"
-            log.error(beanNames.toString());
             TaskDescriptor td = getTaskOrThrow(current);
-            log.info("new Task [ name : "+td.taskName()+", bean : "+td.beanName()+", next_step : "+ next+"]");
             Task step = new Task(
                     i==0?"start":td.taskName(), // Workflow ask for the first step to be "start"
                     td.beanName(),

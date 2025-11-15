@@ -75,7 +75,7 @@ public class MemoryStorageConfiguration {
         }
 
         @Override
-        public <T> T get(Class<T> objectClass, Serializable id) {
+        public synchronized <T> T get(Class<T> objectClass, Serializable id) {
             Object obj = storage.get(id);
             return objectClass.isInstance(obj) ? objectClass.cast(obj) : null;
         }
