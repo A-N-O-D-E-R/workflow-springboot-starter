@@ -4,6 +4,7 @@ import com.anode.workflow.entities.steps.InvokableTask;
 import com.anode.workflow.entities.steps.responses.TaskResponse;
 import com.anode.workflow.entities.steps.responses.StepResponseType;
 import com.anode.workflow.example.model.Order;
+import com.anode.workflow.spring.autoconfigure.annotations.Task;
 import lombok.AllArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -11,8 +12,12 @@ import org.springframework.stereotype.Component;
 
 /**
  * Example workflow task that validates an order.
+ *
+ * Automatically registered with the workflow engine via @Task annotation.
+ * Task name: "validateordertask" (lowercase class name by default)
  */
 @Component("validateOrderTask")
+@Task  // Auto-discovered by TaskScanner
 @AllArgsConstructor
 public class ValidateOrderTask implements InvokableTask {
 

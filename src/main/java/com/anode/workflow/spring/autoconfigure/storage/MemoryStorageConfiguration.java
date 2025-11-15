@@ -100,21 +100,22 @@ public class MemoryStorageConfiguration {
             return get(objectClass, id);
         }
 
-        public synchronized void releaseLock(Serializable id) {
-            locks.put(id, false);
-        }
 
         @Override
         public synchronized void saveCollection(Collection objects) {
             for (Object obj : objects) {
-                save(null, obj);
+                // Generate unique ID for each object
+                Serializable id = java.util.UUID.randomUUID().toString();
+                save(id, obj);
             }
         }
 
         @Override
         public synchronized void saveOrUpdateCollection(Collection objects) {
             for (Object obj : objects) {
-                saveOrUpdate(null, obj);
+                // Generate unique ID for each object
+                Serializable id = java.util.UUID.randomUUID().toString();
+                saveOrUpdate(id, obj);
             }
         }
 

@@ -2,14 +2,14 @@ spring:
   application:
     name: workflow-example
 
-  # H2 Database Configuration
+  # H2 Database Configuration (for JPA storage - not used in this example)
   datasource:
     url: jdbc:h2:mem:workflowdb
     driver-class-name: org.h2.Driver
     username: sa
     password:
 
-  # JPA Configuration
+  # JPA Configuration (for JPA storage - not used in this example)
   jpa:
     hibernate:
       ddl-auto: create-drop
@@ -28,21 +28,42 @@ spring:
 server:
   port: 8080
 
-# Workflow Configuration
+# ===================================================
+# Workflow Spring Boot Starter Configuration
+# ===================================================
 workflow:
+  # Multiple workflow engines can be configured
+  # Each engine has isolated storage and configuration
   engines:
-  - name: order-engine
-    storage:
-      type: memory  # Using in-memory storage for simplicity
-    event:
-      enabled: true
-    factory:
-      enabled: true
-    sla:
-      enabled: false  # Disabled for simple example
+    - name: order-engine                    # Engine name (used in FluentWorkflowBuilder)
+      storage:
+        type: memory                        # Options: memory, jpa, file, custom
+        # For JPA: type: jpa
+        # For File: type: file, file-path: ./workflow-data
+      sla:
+        enabled: false                      # SLA monitoring disabled for simplicity
+      event:
+        enabled: true                       # Enable event handling
+      factory:
+        enabled: true                       # Enable component factory
 
-# Logging
+  # Package to scan for @Task annotated classes
+  # Default: com.anode
+  scan-base-package: com.anode
+
+# Logging Configuration
 logging:
   level:
+    # Workflow engine logging
     com.anode.workflow: INFO
+    com.anode.workflow.spring: DEBUG
+
+    # Example application logging
     com.anode.workflow.example: DEBUG
+
+    # Show SQL (if using JPA storage)
+    org.hibernate.SQL: DEBUG
+    org.hibernate.type.descriptor.sql.BasicBinder: TRACE
+
+  pattern:
+    console: "%d{HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n"
