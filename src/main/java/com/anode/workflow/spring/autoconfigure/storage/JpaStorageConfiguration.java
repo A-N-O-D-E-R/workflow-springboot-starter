@@ -1,6 +1,8 @@
 package com.anode.workflow.spring.autoconfigure.storage;
 
 import com.anode.tool.service.CommonService;
+import com.anode.workflow.spring.autoconfigure.condition.ConditionalOnStorageType;
+import com.anode.workflow.spring.autoconfigure.properties.JpaProperties.StorageType;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.EntityManagerFactory;
 import org.slf4j.Logger;
@@ -14,7 +16,7 @@ import org.springframework.context.annotation.Configuration;
 /**
  * JPA/Hibernate storage configuration for workflow engine.
  *
- * <p>This bean is available when JPA is on the classpath and can be selected per engine:
+ * <p>This bean is only created when at least one engine is configured to use JPA storage:
  * <pre>
  * workflow:
  *   engines:
@@ -25,6 +27,7 @@ import org.springframework.context.annotation.Configuration;
  */
 @Configuration
 @ConditionalOnClass(EntityManager.class)
+@ConditionalOnStorageType(StorageType.JPA)
 public class JpaStorageConfiguration {
 
     private static final Logger logger = LoggerFactory.getLogger(JpaStorageConfiguration.class);

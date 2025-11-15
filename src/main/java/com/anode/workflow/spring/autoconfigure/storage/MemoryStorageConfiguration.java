@@ -1,6 +1,8 @@
 package com.anode.workflow.spring.autoconfigure.storage;
 
 import com.anode.tool.service.CommonService;
+import com.anode.workflow.spring.autoconfigure.condition.ConditionalOnStorageType;
+import com.anode.workflow.spring.autoconfigure.properties.JpaProperties.StorageType;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
@@ -14,7 +16,7 @@ import java.util.stream.Collectors;
 /**
  * In-memory storage configuration for workflow engine.
  *
- * <p>This bean is always available and can be selected per engine:
+ * <p>This bean is only created when at least one engine is configured to use memory storage:
  * <pre>
  * workflow:
  *   engines:
@@ -27,6 +29,7 @@ import java.util.stream.Collectors;
  * All data is lost when the application restarts.
  */
 @Configuration
+@ConditionalOnStorageType(StorageType.MEMORY)
 public class MemoryStorageConfiguration {
 
     private static final Logger logger = LoggerFactory.getLogger(MemoryStorageConfiguration.class);
