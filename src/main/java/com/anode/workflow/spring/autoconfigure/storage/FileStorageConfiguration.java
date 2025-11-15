@@ -37,6 +37,7 @@ import java.util.*;
 @Configuration
 @ConditionalOnStorageType(StorageType.FILE)
 public class FileStorageConfiguration {
+     private static final int MAX_ID_LENGTH = 200; // limit the ID length : File system path length limits (255 chars on many systems)
 
     private static final Logger logger = LoggerFactory.getLogger(FileStorageConfiguration.class);
 
@@ -136,7 +137,15 @@ public class FileStorageConfiguration {
             // - Null bytes: \x00
             // - Parent directory references: ..
             // Replace each dangerous character or pattern with an underscore
-            return id.replaceAll("[/\\\\:*?\"<>|\\x00]|\\.\\.+", "_");
+            if (id.length() > MAX_ID_LENGTH) 
+                throw new IllegalArgumentException("ID too long: " + id.length() + " chars (max " + MAX_ID_LENGTH+ ")");
+            if (id == null || id.isEmpty())
+                throw new IllegalArgumentException("ID cannot be null or empty");
+            String sanitized = id.replaceAll("[/\\\\:*?\"<>|\\x00]|\\.\\.+|^\\.+$ ", "_");
+            if (sanitized.isEmpty())
+                throw new IllegalArgumentException("ID becomes empty after sanitization");
+            return sanitized;
+
         }
 
         @Override
