@@ -28,8 +28,9 @@ public class DefaultWorkflowComponentFactory implements WorkflowComponantFactory
     @PostConstruct
     public void init() {
         // cache all beans implementing InvokableTask / InvokableRoute
-        taskBeans = context.getBeansOfType(InvokableTask.class);
-        routeBeans = context.getBeansOfType(InvokableRoute.class);
+        // use defensive copying to prevent external modification
+        taskBeans = Map.copyOf(context.getBeansOfType(InvokableTask.class));
+        routeBeans = Map.copyOf(context.getBeansOfType(InvokableRoute.class));
     }
 
     /**
@@ -38,12 +39,21 @@ public class DefaultWorkflowComponentFactory implements WorkflowComponantFactory
      * <p>Supported component types:
      * <ul>
      *   <li>{@link StepType#TASK} - Returns an {@link InvokableTask} implementation</li>
-     *   <li>{@link StepType#S_ROUTE} - Returns an {@link InvokableRoute} implementation</li>
+     *   <li>{@link StepType#S_ROUTE} - Returns an {@link InvokableRoute} implementation (sequential route)</li>
+     *   <li>{@link StepType#P_ROUTE} - Returns an {@link InvokableRoute} implementation (parallel route)</li>
+     *   <li>{@link StepType#P_ROUTE_DYNAMIC} - Returns an {@link InvokableRoute} implementation (dynamic parallel route)</li>
+     * </ul>
+     *
+     * <p>Unsupported types (handled by Runtime Service):
+     * <ul>
+     *   <li>{@link StepType#PAUSE} - Workflow pause point</li>
+     *   <li>{@link StepType#P_JOIN} - Parallel join synchronization</li>
+     *   <li>{@link StepType#PERSIST} - Workflow persistence point</li>
      * </ul>
      *
      * @param ctx the workflow context containing component type and name
      * @return the workflow component (InvokableTask or InvokableRoute)
-     * @throws IllegalArgumentException if the component type is not supported
+     * @throws IllegalArgumentException if the component type is not supported or context/type/name is null/empty
      * @throws IllegalStateException if the component bean is not found
      */
     @Override
@@ -65,22 +75,18 @@ public class DefaultWorkflowComponentFactory implements WorkflowComponantFactory
                 "Component name cannot be null or empty for component type " + componentType);
         }
 
-        if (componentType == StepType.TASK) {
-            return findTask(componentName);
-        }
-
-        if (componentType == StepType.S_ROUTE) {
-            return findRoute(componentName);
-        }
-
-        // Only TASK and S_ROUTE are currently supported
-        // Other types like P_ROUTE, SUB_PROCESS, etc. are not implemented
-        throw new IllegalArgumentException(
-                String.format("Unsupported component type: %s for component '%s'. " +
-                             "Only TASK and S_ROUTE are currently supported. " +
-                             "If you need support for other component types, please file an issue.",
-                             componentType, componentName)
-        );
+        return switch (componentType) {
+            case TASK -> findTask(componentName);
+            case S_ROUTE, P_ROUTE, P_ROUTE_DYNAMIC -> findRoute(componentName);
+            case PAUSE, P_JOIN, PERSIST -> throw new IllegalArgumentException(
+                String.format(
+                    "Unsupported component type: %s for component '%s'. " +
+                    "Only TASK, S_ROUTE, P_ROUTE, and P_ROUTE_DYNAMIC are supported. " +
+                    "Other types should be handled by the Runtime Service.",
+                    componentType, componentName
+                )
+            );
+        };
     }
 
     /**
