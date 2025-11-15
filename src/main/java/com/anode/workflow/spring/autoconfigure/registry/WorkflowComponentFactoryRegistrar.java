@@ -9,6 +9,7 @@ import org.springframework.core.type.classreading.MetadataReaderFactory;
 import org.springframework.core.type.classreading.SimpleMetadataReaderFactory;
 
 import com.anode.workflow.service.WorkflowComponantFactory;
+import com.anode.workflow.spring.autoconfigure.util.BeanNameUtils;
 
 public class WorkflowComponentFactoryRegistrar implements ImportBeanDefinitionRegistrar {
 
@@ -48,15 +49,15 @@ public class WorkflowComponentFactoryRegistrar implements ImportBeanDefinitionRe
                 GenericBeanDefinition bd = new GenericBeanDefinition();
                 bd.setBeanClass(clazz);
 
-                String beanName =
-                        Character.toLowerCase(clazz.getSimpleName().charAt(0)) +
-                                clazz.getSimpleName().substring(1);
+                String beanName = BeanNameUtils.deriveBeanName(clazz);
 
                 registry.registerBeanDefinition(beanName, bd);
             }
 
-        } catch (Exception e) {
-            throw new RuntimeException("Failed scanning @WorkflowComponentFactory classes", e);
+        } catch (java.io.IOException e) {
+            throw new RuntimeException("Failed to scan classpath for @WorkflowComponentFactory classes", e);
+        } catch (ClassNotFoundException e) {
+            throw new RuntimeException("Failed to load @WorkflowComponentFactory class", e);
         }
     }
 }

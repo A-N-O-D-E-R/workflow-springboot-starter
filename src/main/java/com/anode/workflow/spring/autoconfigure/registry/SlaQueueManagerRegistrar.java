@@ -9,6 +9,7 @@ import org.springframework.core.type.classreading.MetadataReaderFactory;
 import org.springframework.core.type.classreading.SimpleMetadataReaderFactory;
 
 import com.anode.workflow.service.SlaQueueManager;
+import com.anode.workflow.spring.autoconfigure.util.BeanNameUtils;
 
 public class SlaQueueManagerRegistrar implements ImportBeanDefinitionRegistrar {
 
@@ -42,16 +43,16 @@ public class SlaQueueManagerRegistrar implements ImportBeanDefinitionRegistrar {
                 GenericBeanDefinition bd = new GenericBeanDefinition();
                 bd.setBeanClass(clazz);
 
-                // Create a standard bean name
-                String beanName =
-                    Character.toLowerCase(clazz.getSimpleName().charAt(0))
-                    + clazz.getSimpleName().substring(1);
+                // Create a standard bean name using utility
+                String beanName = BeanNameUtils.deriveBeanName(clazz);
 
                 registry.registerBeanDefinition(beanName, bd);
             }
 
-        } catch (Exception e) {
-            throw new RuntimeException("Failed scanning @SlaQueueManagerComponent classes", e);
+        } catch (java.io.IOException e) {
+            throw new RuntimeException("Failed to scan classpath for @SlaQueueManagerComponent classes", e);
+        } catch (ClassNotFoundException e) {
+            throw new RuntimeException("Failed to load @SlaQueueManagerComponent class", e);
         }
     }
 }

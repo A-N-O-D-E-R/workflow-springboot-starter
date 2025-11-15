@@ -34,21 +34,52 @@ public class DefaultWorkflowComponentFactory implements WorkflowComponantFactory
 
     /**
      * Returns the workflow component based on context.
-     * Could be a task or a route depending on StepType.
+     *
+     * <p>Supported component types:
+     * <ul>
+     *   <li>{@link StepType#TASK} - Returns an {@link InvokableTask} implementation</li>
+     *   <li>{@link StepType#S_ROUTE} - Returns an {@link InvokableRoute} implementation</li>
+     * </ul>
+     *
+     * @param ctx the workflow context containing component type and name
+     * @return the workflow component (InvokableTask or InvokableRoute)
+     * @throws IllegalArgumentException if the component type is not supported
+     * @throws IllegalStateException if the component bean is not found
      */
     @Override
     public Object getObject(WorkflowContext ctx) {
-        // TODO : implements other strategy for all component type
-        if (ctx.getCompType() == StepType.TASK) {
-            return findTask(ctx.getCompName());
+        if (ctx == null) {
+            throw new IllegalArgumentException("WorkflowContext cannot be null");
         }
 
-        if (ctx.getCompType() == StepType.S_ROUTE) {
-            return findRoute(ctx.getCompName());
+        StepType componentType = ctx.getCompType();
+        String componentName = ctx.getCompName();
+
+        if (componentType == null) {
+            throw new IllegalArgumentException(
+                "Component type cannot be null for component '" + componentName + "'");
         }
 
+        if (componentName == null || componentName.trim().isEmpty()) {
+            throw new IllegalArgumentException(
+                "Component name cannot be null or empty for component type " + componentType);
+        }
+
+        if (componentType == StepType.TASK) {
+            return findTask(componentName);
+        }
+
+        if (componentType == StepType.S_ROUTE) {
+            return findRoute(componentName);
+        }
+
+        // Only TASK and S_ROUTE are currently supported
+        // Other types like P_ROUTE, SUB_PROCESS, etc. are not implemented
         throw new IllegalArgumentException(
-                "Unsupported component type: " + ctx.getCompType()
+                String.format("Unsupported component type: %s for component '%s'. " +
+                             "Only TASK and S_ROUTE are currently supported. " +
+                             "If you need support for other component types, please file an issue.",
+                             componentType, componentName)
         );
     }
 
