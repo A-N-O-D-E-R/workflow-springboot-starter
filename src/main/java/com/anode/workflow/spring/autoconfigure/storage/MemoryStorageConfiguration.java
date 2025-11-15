@@ -134,13 +134,22 @@ public class MemoryStorageConfiguration {
                 .orElse(null);
         }
 
+        /**
+         * Check if an object's field matches the given value using reflection.
+         *
+         * @param obj the object to check
+         * @param fieldName the field name to inspect
+         * @param value the expected value
+         * @return true if the field exists and matches the value, false otherwise
+         */
         private boolean matchesUniqueKey(Object obj, String fieldName, String value) {
             try {
                 java.lang.reflect.Field field = obj.getClass().getDeclaredField(fieldName);
                 field.setAccessible(true);
                 Object fieldValue = field.get(obj);
                 return value.equals(fieldValue);
-            } catch (Exception e) {
+            } catch (NoSuchFieldException | IllegalAccessException e) {
+                // Field doesn't exist or isn't accessible - this is expected for mismatched types
                 return false;
             }
         }

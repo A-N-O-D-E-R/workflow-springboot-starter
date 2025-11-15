@@ -63,7 +63,7 @@ class DefaultWorkflowComponentFactoryTest {
         // When/Then
         assertThatThrownBy(() -> factory.getObject(context))
             .isInstanceOf(IllegalArgumentException.class)
-            .hasMessageContaining("Unsupported component type");
+            .hasMessageContaining("Component type cannot be null");
     }
 
     @Test
@@ -88,5 +88,52 @@ class DefaultWorkflowComponentFactoryTest {
     @Test
     void shouldBeInstantiable() {
         assertThat(factory).isNotNull();
+    }
+
+    @Test
+    void shouldThrowExceptionForNullContext() {
+        // When/Then
+        assertThatThrownBy(() -> factory.getObject(null))
+            .isInstanceOf(IllegalArgumentException.class)
+            .hasMessageContaining("WorkflowContext cannot be null");
+    }
+
+    @Test
+    void shouldThrowExceptionForNullComponentType() {
+        // Given
+        WorkflowContext context = mock(WorkflowContext.class);
+        when(context.getCompType()).thenReturn(null);
+        when(context.getCompName()).thenReturn("testTask");
+
+        // When/Then
+        assertThatThrownBy(() -> factory.getObject(context))
+            .isInstanceOf(IllegalArgumentException.class)
+            .hasMessageContaining("Component type cannot be null");
+    }
+
+    @Test
+    void shouldThrowExceptionForNullComponentName() {
+        // Given
+        WorkflowContext context = mock(WorkflowContext.class);
+        when(context.getCompType()).thenReturn(StepType.TASK);
+        when(context.getCompName()).thenReturn(null);
+
+        // When/Then
+        assertThatThrownBy(() -> factory.getObject(context))
+            .isInstanceOf(IllegalArgumentException.class)
+            .hasMessageContaining("Component name cannot be null");
+    }
+
+    @Test
+    void shouldThrowExceptionForEmptyComponentName() {
+        // Given
+        WorkflowContext context = mock(WorkflowContext.class);
+        when(context.getCompType()).thenReturn(StepType.TASK);
+        when(context.getCompName()).thenReturn("  ");
+
+        // When/Then
+        assertThatThrownBy(() -> factory.getObject(context))
+            .isInstanceOf(IllegalArgumentException.class)
+            .hasMessageContaining("Component name cannot be null or empty");
     }
 }

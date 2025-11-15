@@ -11,33 +11,83 @@ import org.springframework.stereotype.Component;
 
 import com.anode.workflow.entities.steps.InvokableTask;
 import com.anode.workflow.spring.autoconfigure.annotations.Task;
+import com.anode.workflow.spring.autoconfigure.util.BeanNameUtils;
 
 import jakarta.annotation.PostConstruct;
 
+/**
+ * Scans the classpath for classes annotated with {@link Task} and builds a registry.
+ *
+ * <p>This component automatically discovers all task implementations during application startup
+ * and makes them available for workflow execution. Tasks can be looked up either by their
+ * Spring bean name or by their configured task name.
+ *
+ * <p><b>Usage:</b> Tasks are automatically registered when annotated with {@code @Task}:
+ * <pre>
+ * {@literal @}Task(name = "myTask")
+ * public class MyTask implements InvokableTask {
+ *     // implementation
+ * }
+ * </pre>
+ *
+ * @see Task
+ * @see TaskDescriptor
+ * @see InvokableTask
+ */
 @Component
 public class TaskScanner {
 
     private final ApplicationContext context;
+
+    /** Registry of tasks indexed by Spring bean name */
     private final Map<String, TaskDescriptor> registry = new HashMap<>();
+
+    /** Index of tasks by their configured task name for faster lookup */
     private final Map<String, TaskDescriptor> taskNameIndex = new HashMap<>();
 
+    /**
+     * Constructs a TaskScanner with the given application context.
+     *
+     * @param context the Spring application context
+     */
     public TaskScanner(ApplicationContext context) {
         this.context = context;
     }
 
+    /**
+     * Initializes the scanner by performing classpath scanning for {@code @Task} annotations.
+     * This method is automatically called after bean construction.
+     */
     @PostConstruct
     public void init() {
         scan();
     }
 
+    /**
+     * Returns an unmodifiable view of all registered tasks.
+     *
+     * @return map of bean names to task descriptors
+     */
     public Map<String, TaskDescriptor> getRegistry() {
         return Collections.unmodifiableMap(registry);
     }
 
+    /**
+     * Retrieves a task descriptor by its Spring bean name.
+     *
+     * @param beanName the Spring bean name
+     * @return the task descriptor, or null if not found
+     */
     public TaskDescriptor getByBeanName(String beanName) {
         return registry.get(beanName);
     }
 
+    /**
+     * Retrieves a task descriptor by its configured task name.
+     *
+     * @param taskName the task name (from {@link Task#name()})
+     * @return the task descriptor, or null if not found
+     */
     public TaskDescriptor getByTaskName(String taskName) {
         return taskNameIndex.get(taskName);
     }
@@ -55,9 +105,14 @@ public class TaskScanner {
             try {
                 Class<?> clazz = Class.forName(bd.getBeanClassName());
                 registerTaskClass(clazz);
-            } catch (Exception e) {
+            } catch (ClassNotFoundException e) {
                 throw new IllegalStateException(
-                    "Failed loading @Task class: " + bd.getBeanClassName(), e);
+                    "Failed to load @Task class: " + bd.getBeanClassName() +
+                    ". Class was found during scanning but cannot be loaded.", e);
+            } catch (NoClassDefFoundError e) {
+                throw new IllegalStateException(
+                    "Failed to load @Task class: " + bd.getBeanClassName() +
+                    ". Missing dependency for class.", e);
             }
         }
     }
@@ -67,7 +122,7 @@ public class TaskScanner {
         if (annotation == null) return;
 
         String beanName = annotation.value().isEmpty()
-            ? deriveBeanName(clazz)
+            ? BeanNameUtils.deriveBeanName(clazz)
             : annotation.value();
 
         // Check for duplicate bean names
@@ -109,15 +164,6 @@ public class TaskScanner {
         registry.put(beanName, descriptor);
         taskNameIndex.put(taskName, descriptor);
     }
-
-    /**
-     * Derive bean name from class following Spring conventions.
-     */
-    private String deriveBeanName(Class<?> clazz) {
-        String simpleName = clazz.getSimpleName();
-        return Character.toLowerCase(simpleName.charAt(0)) + simpleName.substring(1);
-    }
-
 
     /**
      * Automatically finds the root package of the app.

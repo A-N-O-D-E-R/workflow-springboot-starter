@@ -3,6 +3,7 @@ package com.anode.workflow.spring.autoconfigure.storage;
 import com.anode.tool.service.CommonService;
 import com.anode.workflow.spring.autoconfigure.condition.ConditionalOnStorageType;
 import com.anode.workflow.spring.autoconfigure.properties.JpaProperties.StorageType;
+import com.anode.workflow.spring.autoconfigure.properties.WorkflowEnginesProperties;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -39,10 +40,24 @@ public class FileStorageConfiguration {
 
     private static final Logger logger = LoggerFactory.getLogger(FileStorageConfiguration.class);
 
+    /**
+     * Creates a file-based CommonService using the configured file path.
+     *
+     * <p>The file path is read from the first engine configured with FILE storage type.
+     * If no file path is explicitly configured, defaults to "./workflow-data".
+     *
+     * @param enginesProperties the workflow engines configuration
+     * @return file-based common service implementation
+     */
     @Bean
     @ConditionalOnMissingBean(name = "fileCommonService")
-    public CommonService fileCommonService() {
-        String filePath = "./workflow-data";
+    public CommonService fileCommonService(WorkflowEnginesProperties enginesProperties) {
+        // Find the first engine using FILE storage and get its file path
+        String filePath = enginesProperties.getEngines().stream()
+            .filter(engine -> engine.getStorage().getType() == StorageType.FILE)
+            .map(engine -> engine.getStorage().getFilePath())
+            .findFirst()
+            .orElse("./workflow-data"); // Default fallback
 
         logger.warn("Configuring FILE-BASED storage for workflow engine");
         logger.warn("  Storage path: {}", filePath);
@@ -73,8 +88,55 @@ public class FileStorageConfiguration {
             this.objectMapper = new ObjectMapper();
         }
 
+        /**
+         * Get the file for the given ID with path traversal protection.
+         *
+         * @param id the entity ID
+         * @return the file for the given ID
+         * @throws SecurityException if path traversal is detected
+         * @throws IllegalStateException if path validation fails
+         */
         private File getFile(Serializable id) {
-            return new File(basePath, id + ".json");
+            // Sanitize the ID to prevent path traversal
+            String sanitizedId = sanitizeId(id.toString());
+            File file = new File(basePath, sanitizedId + ".json");
+
+            // Validate the file is within basePath (prevent path traversal)
+            try {
+                String canonicalBase = new File(basePath).getCanonicalPath();
+                String canonicalFile = file.getCanonicalPath();
+                if (!canonicalFile.startsWith(canonicalBase + File.separator) &&
+                    !canonicalFile.equals(canonicalBase)) {
+                    throw new SecurityException(
+                        String.format("Path traversal attempt detected for ID: %s (resolved to: %s)",
+                                    id, canonicalFile)
+                    );
+                }
+            } catch (IOException e) {
+                throw new IllegalStateException("Failed to validate file path for ID: " + id, e);
+            }
+
+            return file;
+        }
+
+        /**
+         * Sanitize an ID string to prevent path traversal attacks.
+         * Replaces path separators and parent directory references with underscores.
+         *
+         * @param id the ID to sanitize
+         * @return the sanitized ID
+         */
+        private String sanitizeId(String id) {
+            // Remove or replace dangerous characters:
+            // - Forward and back slashes: / \
+            // - Colon (Windows drive): :
+            // - Wildcards: * ?
+            // - Quotes: " <> (Windows reserved)
+            // - Pipe: | (Windows reserved)
+            // - Null bytes: \x00
+            // - Parent directory references: ..
+            // Replace each dangerous character or pattern with an underscore
+            return id.replaceAll("[/\\\\:*?\"<>|\\x00]|\\.\\.+", "_");
         }
 
         @Override
@@ -149,13 +211,11 @@ public class FileStorageConfiguration {
 
             List<T> results = new ArrayList<>();
             for (File file : files) {
-                try {
-                    T obj = read(file, type);
-                    if (obj != null) {
-                        results.add(obj);
-                    }
-                } catch (Exception e) {
-                    // Skip files that don't match the type
+                // Attempt to read and deserialize each file
+                // Files that can't be deserialized to the target type are silently skipped
+                T obj = read(file, type);
+                if (obj != null) {
+                    results.add(obj);
                 }
             }
             return results;
@@ -169,13 +229,24 @@ public class FileStorageConfiguration {
                 .orElse(null);
         }
 
+        /**
+         * Check if an object's field matches the given value using reflection.
+         *
+         * @param obj the object to check
+         * @param fieldName the field name to inspect
+         * @param value the expected value
+         * @return true if the field exists and matches the value, false otherwise
+         */
         private boolean matchesUniqueKey(Object obj, String fieldName, String value) {
             try {
                 java.lang.reflect.Field field = obj.getClass().getDeclaredField(fieldName);
                 field.setAccessible(true);
                 Object fieldValue = field.get(obj);
                 return value.equals(fieldValue);
-            } catch (Exception e) {
+            } catch (NoSuchFieldException | IllegalAccessException e) {
+                // Field doesn't exist or isn't accessible
+                logger.debug("Failed to access field '{}' on {}: {}",
+                           fieldName, obj.getClass().getSimpleName(), e.getMessage());
                 return false;
             }
         }
@@ -210,6 +281,10 @@ public class FileStorageConfiguration {
             try {
                 return objectMapper.readValue(file, clazz);
             } catch (IOException e) {
+                // Log at debug level - this is expected when files don't match the target type
+                // or when file format is incompatible
+                logger.debug("Failed to read file '{}' as {}: {}",
+                           file.getName(), clazz.getSimpleName(), e.getMessage());
                 return null;
             }
         }

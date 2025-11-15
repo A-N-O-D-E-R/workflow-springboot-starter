@@ -16,6 +16,42 @@ import com.anode.workflow.service.runtime.RuntimeService;
 import com.anode.workflow.spring.autoconfigure.scanner.TaskScanner;
 import com.anode.workflow.spring.autoconfigure.scanner.TaskScanner.TaskDescriptor;
 
+/**
+ * Facade for workflow execution operations.
+ *
+ * <p>Provides a simplified API for starting and managing workflows. This class integrates
+ * with the Spring Boot configuration to automatically use the configured runtime services
+ * and task registry.
+ *
+ * <p><b>Features:</b>
+ * <ul>
+ *   <li>Start workflows from task names or pre-built definitions</li>
+ *   <li>Automatic task discovery via {@link TaskScanner}</li>
+ *   <li>Support for multiple runtime services (configured engines)</li>
+ *   <li>Fluent workflow builder for complex workflows</li>
+ * </ul>
+ *
+ * <p><b>Example usage:</b>
+ * <pre>
+ * // Start a simple workflow
+ * WorkflowContext ctx = engine.startWorkflow(
+ *     "case-123",
+ *     List.of("taskA", "taskB"),
+ *     Map.of("userId", 42)
+ * );
+ *
+ * // Build a complex workflow
+ * FluentWorkflowBuilder builder = engine.builder();
+ * builder.addTask("processOrder")
+ *        .addTask("sendNotification")
+ *        .addVariable("orderId", 123);
+ * WorkflowContext ctx = engine.startWorkflow("case-456", builder);
+ * </pre>
+ *
+ * @see RuntimeService
+ * @see TaskScanner
+ * @see FluentWorkflowBuilder
+ */
 public class WorkflowEngine {
 
     private static final Logger log =
@@ -24,6 +60,12 @@ public class WorkflowEngine {
     private final Map<String, RuntimeService> runtimeServices;
     private final TaskScanner taskScanner;
 
+    /**
+     * Constructs a WorkflowEngine with the given runtime services and task scanner.
+     *
+     * @param services map of engine names to runtime services
+     * @param taskScanner the task scanner for task discovery
+     */
     public WorkflowEngine(Map<String, RuntimeService> services, TaskScanner taskScanner) {
         this.runtimeServices = services;
         this.taskScanner = taskScanner;

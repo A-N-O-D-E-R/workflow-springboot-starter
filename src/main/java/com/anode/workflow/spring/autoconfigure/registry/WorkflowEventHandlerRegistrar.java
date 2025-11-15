@@ -9,6 +9,7 @@ import org.springframework.core.type.classreading.MetadataReaderFactory;
 import org.springframework.core.type.classreading.SimpleMetadataReaderFactory;
 
 import com.anode.workflow.service.EventHandler;
+import com.anode.workflow.spring.autoconfigure.util.BeanNameUtils;
 
 public class WorkflowEventHandlerRegistrar implements ImportBeanDefinitionRegistrar {
 
@@ -43,14 +44,15 @@ public class WorkflowEventHandlerRegistrar implements ImportBeanDefinitionRegist
                 bd.setBeanClass(clazz);
 
                 // Bean name = simple class name camelCase
-                String beanName = Character.toLowerCase(clazz.getSimpleName().charAt(0))
-                        + clazz.getSimpleName().substring(1);
+                String beanName = BeanNameUtils.deriveBeanName(clazz);
 
                 registry.registerBeanDefinition(beanName, bd);
             }
 
-        } catch (Exception e) {
-            throw new RuntimeException("Failed scanning @WorkflowEventHandler classes", e);
+        } catch (java.io.IOException e) {
+            throw new RuntimeException("Failed to scan classpath for @WorkflowEventHandler classes", e);
+        } catch (ClassNotFoundException e) {
+            throw new RuntimeException("Failed to load @WorkflowEventHandler class", e);
         }
     }
 }

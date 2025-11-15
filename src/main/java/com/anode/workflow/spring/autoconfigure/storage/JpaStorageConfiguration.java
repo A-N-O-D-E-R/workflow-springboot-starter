@@ -69,6 +69,8 @@ public class JpaStorageConfiguration {
      * integrating with Spring's transaction management via @Transactional.
      */
     private static class JpaCommonServiceAdapter implements CommonService {
+        private static final Logger logger = LoggerFactory.getLogger(JpaCommonServiceAdapter.class);
+
         private final EntityManagerFactory entityManagerFactory;
 
         public JpaCommonServiceAdapter(EntityManagerFactory entityManagerFactory) {
@@ -134,13 +136,34 @@ public class JpaStorageConfiguration {
             executeInTransaction(em -> em.merge(object));
         }
 
+        /**
+         * Delete operation is not supported in JPA storage.
+         *
+         * <p><b>Limitation:</b> The {@link CommonService#delete(Serializable)} method only provides
+         * an ID without the entity type, making it impossible to perform a JPA delete operation
+         * (which requires both the entity class and ID).
+         *
+         * <p><b>Workaround:</b> Use JPA repositories directly or the {@code get() + EntityManager.remove()}
+         * pattern if you know the entity type:
+         * <pre>
+         * // Instead of: commonService.delete(id);
+         * // Use:
+         * MyEntity entity = commonService.get(MyEntity.class, id);
+         * if (entity != null) {
+         *     entityManager.remove(entity);
+         * }
+         * </pre>
+         *
+         * @param id the entity ID
+         * @throws UnsupportedOperationException always thrown as this operation is not supported
+         */
         @Override
         public void delete(java.io.Serializable id) {
-            // Generic delete - implementation depends on entity type
-            // Note: This requires knowing the entity type, which isn't provided
-            // This is a limitation of the CommonService interface
             throw new UnsupportedOperationException(
-                "Generic delete by ID requires entity type - use type-specific repository instead");
+                "Delete by ID alone is not supported in JPA storage. " +
+                "The CommonService.delete(Serializable) method doesn't provide the entity type, " +
+                "which is required for JPA operations. " +
+                "Use type-specific repositories or get() followed by EntityManager.remove() instead.");
         }
 
         @Override
@@ -217,9 +240,10 @@ public class JpaStorageConfiguration {
 
         @Override
         public long incrCounter(String counterName) {
-            // Simple counter implementation using a query
-            // In production, you might want a separate counter table
-            return System.currentTimeMillis();
+            throw new UnsupportedOperationException(
+                "incrCounter is not supported in JPA storage. " +
+                "The CommonService interface doesn't provide entity type information needed for JPA. " +
+                "Implement a dedicated counter table or use application-level counter management instead.");
         }
 
         @Override
