@@ -144,7 +144,7 @@ class FileStorageTest {
     void shouldHandleMultipleDotDotSequences() {
         // Given - multiple .. sequences
         TestEntity entity = new TestEntity("test", "value");
-        Serializable maliciousId = "../../..";
+        Serializable maliciousId = "../../../elements";
 
         // When
         fileStorage.save(maliciousId, entity);
@@ -152,7 +152,7 @@ class FileStorageTest {
         // Then - all dangerous patterns should be replaced
         // ../../.. becomes _____
         // (.. → _, / → _, .. → _, / → _, .. → _)
-        File expectedFile = new File(basePath, "_____.json");
+        File expectedFile = new File(basePath, "______elements.json");
         assertThat(expectedFile).exists();
     }
 
@@ -249,6 +249,66 @@ class FileStorageTest {
             assertThat(retrieved).isNotNull();
             assertThat(retrieved.id()).isEqualTo(id);
         }
+    }
+
+    @Test
+    void shouldRejectEmptyId() {
+        // Given
+        TestEntity entity = new TestEntity("", "value");
+
+        // When/Then
+        assertThatThrownBy(() -> fileStorage.save("", entity))
+            .isInstanceOf(IllegalArgumentException.class)
+            .hasMessageContaining("ID cannot be null or empty");
+    }
+
+    @Test
+    void shouldRejectNullId() {
+        // Given
+        TestEntity entity = new TestEntity("test", "value");
+
+        // When/Then
+        assertThatThrownBy(() -> fileStorage.save(null, entity))
+            .isInstanceOf(IllegalArgumentException.class)
+            .hasMessageContaining("ID cannot be null or empty");
+    }
+
+    @Test
+    void shouldRejectVeryLongId() {
+        // Given - ID longer than 200 characters
+        String veryLongId = "a".repeat(201);
+        TestEntity entity = new TestEntity("test", "value");
+
+        // When/Then
+        assertThatThrownBy(() -> fileStorage.save(veryLongId, entity))
+            .isInstanceOf(IllegalArgumentException.class)
+            .hasMessageContaining("ID too long");
+    }
+
+    @Test
+    void shouldAcceptMaxLengthId() {
+        // Given - ID exactly 200 characters (max allowed)
+        String maxLengthId = "a".repeat(200);
+        TestEntity entity = new TestEntity("test", "value");
+
+        // When
+        fileStorage.save(maxLengthId, entity);
+
+        // Then - should succeed
+        TestEntity retrieved = fileStorage.get(TestEntity.class, maxLengthId);
+        assertThat(retrieved).isNotNull();
+    }
+
+    @Test
+    void shouldRejectIdThatBecomesEmptyAfterSanitization() {
+        // Given - ID that contains only dangerous characters
+        String allDangerousId = "///...\\\\\\";
+        TestEntity entity = new TestEntity("test", "value");
+
+        // When/Then
+        assertThatThrownBy(() -> fileStorage.save(allDangerousId, entity))
+            .isInstanceOf(IllegalArgumentException.class)
+            .hasMessageContaining("ID becomes empty after sanitization");
     }
 
     // Test entities

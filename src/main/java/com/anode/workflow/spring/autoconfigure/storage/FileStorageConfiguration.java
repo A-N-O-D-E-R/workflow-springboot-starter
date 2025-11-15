@@ -37,7 +37,6 @@ import java.util.*;
 @Configuration
 @ConditionalOnStorageType(StorageType.FILE)
 public class FileStorageConfiguration {
-     private static final int MAX_ID_LENGTH = 200; // limit the ID length : File system path length limits (255 chars on many systems)
 
     private static final Logger logger = LoggerFactory.getLogger(FileStorageConfiguration.class);
 
@@ -80,17 +79,29 @@ public class FileStorageConfiguration {
      * <p>Each entity is stored as a separate JSON file.
      */
     private static class FileCommonService implements CommonService {
+        private static final int MAX_ID_LENGTH = 200; // Maximum ID length before .json extension
+
         private final String basePath;
+        private final String canonicalBasePath; // Cached to avoid repeated I/O
         private final ObjectMapper objectMapper;
         private final Map<String, Long> counters = new HashMap<>();
 
         public FileCommonService(String basePath) {
             this.basePath = basePath;
             this.objectMapper = new ObjectMapper();
+
+            // Cache canonical base path to avoid repeated I/O operations on every file access
+            try {
+                this.canonicalBasePath = new File(basePath).getCanonicalPath();
+            } catch (IOException e) {
+                throw new IllegalStateException("Failed to resolve canonical path for: " + basePath, e);
+            }
         }
 
         /**
          * Get the file for the given ID with path traversal protection.
+         *
+         * <p>Uses cached canonical base path to avoid repeated I/O operations.
          *
          * @param id the entity ID
          * @return the file for the given ID
@@ -99,15 +110,15 @@ public class FileStorageConfiguration {
          */
         private File getFile(Serializable id) {
             // Sanitize the ID to prevent path traversal
-            String sanitizedId = sanitizeId(id.toString());
+            String sanitizedId = sanitizeId(id!=null ? id.toString() : null);
             File file = new File(basePath, sanitizedId + ".json");
 
             // Validate the file is within basePath (prevent path traversal)
+            // Use cached canonicalBasePath to avoid repeated File I/O
             try {
-                String canonicalBase = new File(basePath).getCanonicalPath();
                 String canonicalFile = file.getCanonicalPath();
-                if (!canonicalFile.startsWith(canonicalBase + File.separator) &&
-                    !canonicalFile.equals(canonicalBase)) {
+                if (!canonicalFile.startsWith(canonicalBasePath + File.separator) &&
+                    !canonicalFile.equals(canonicalBasePath)) {
                     throw new SecurityException(
                         String.format("Path traversal attempt detected for ID: %s (resolved to: %s)",
                                     id, canonicalFile)
@@ -126,8 +137,20 @@ public class FileStorageConfiguration {
          *
          * @param id the ID to sanitize
          * @return the sanitized ID
+         * @throws IllegalArgumentException if ID is null, empty, too long, or becomes empty after sanitization
          */
         private String sanitizeId(String id) {
+            // Validate ID is not null or empty
+            if (id == null || id.isEmpty()) {
+                throw new IllegalArgumentException("ID cannot be null or empty");
+            }
+
+            // Validate ID length to prevent filesystem path length issues
+            if (id.length() > MAX_ID_LENGTH) {
+                throw new IllegalArgumentException(
+                    "ID too long: " + id.length() + " chars (max " + MAX_ID_LENGTH + ")");
+            }
+
             // Remove or replace dangerous characters:
             // - Forward and back slashes: / \
             // - Colon (Windows drive): :
@@ -135,17 +158,17 @@ public class FileStorageConfiguration {
             // - Quotes: " <> (Windows reserved)
             // - Pipe: | (Windows reserved)
             // - Null bytes: \x00
-            // - Parent directory references: ..
+            // - Parent directory references: .. (two or more dots)
             // Replace each dangerous character or pattern with an underscore
-            if (id.length() > MAX_ID_LENGTH) 
-                throw new IllegalArgumentException("ID too long: " + id.length() + " chars (max " + MAX_ID_LENGTH+ ")");
-            if (id == null || id.isEmpty())
-                throw new IllegalArgumentException("ID cannot be null or empty");
-            String sanitized = id.replaceAll("[/\\\\:*?\"<>|\\x00]|\\.\\.+|^\\.+$ ", "_");
-            if (sanitized.isEmpty())
-                throw new IllegalArgumentException("ID becomes empty after sanitization");
-            return sanitized;
+            String sanitized = id.replaceAll("[/\\\\:*?\"<>|\\x00]|\\.\\.+", "_");
+            System.out.println(sanitized);
+            // Ensure sanitization didn't result in empty string
+            if (sanitized.isEmpty() || sanitized.chars().allMatch(ch -> ch == '_')) {
+                throw new IllegalArgumentException(
+                    "ID becomes empty after sanitization: " + id);
+            }
 
+            return sanitized;
         }
 
         @Override
