@@ -2,6 +2,7 @@ package com.anode.workflow.spring.autoconfigure.configuration;
 
 import java.util.Map;
 
+import org.springframework.boot.autoconfigure.AutoConfigureAfter;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.ApplicationContext;
 import org.springframework.context.annotation.Bean;
@@ -13,6 +14,9 @@ import com.anode.workflow.spring.autoconfigure.registry.WorkflowComponentFactory
 import com.anode.workflow.spring.autoconfigure.runtime.FluentWorkflowBuilderFactory;
 import com.anode.workflow.spring.autoconfigure.runtime.WorkflowEngine;
 import com.anode.workflow.spring.autoconfigure.scanner.TaskScanner;
+import com.anode.workflow.spring.autoconfigure.storage.FileStorageConfiguration;
+import com.anode.workflow.spring.autoconfigure.storage.JpaStorageConfiguration;
+import com.anode.workflow.spring.autoconfigure.storage.MemoryStorageConfiguration;
 
 @Configuration
 @Import(WorkflowComponentFactoryRegistrar.class)
@@ -22,6 +26,11 @@ import com.anode.workflow.spring.autoconfigure.scanner.TaskScanner;
     havingValue = "true",
     matchIfMissing = true
 )
+@AutoConfigureAfter({
+        JpaStorageConfiguration.class,
+        MemoryStorageConfiguration.class,
+        FileStorageConfiguration.class
+})
 public class WorkflowComponentFactoryAutoConfiguration {
 
     @Bean

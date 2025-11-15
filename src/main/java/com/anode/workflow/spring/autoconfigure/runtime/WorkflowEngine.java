@@ -36,8 +36,8 @@ public class WorkflowEngine {
     /**
      * Start a workflow given a sequence of task names.
      */
-    public WorkflowContext startWorkflow(String caseId, List<String> taskNames, Map<String, Object> variableMap) {
-        WorkflowDefinition def = buildDefinition(taskNames);
+    public WorkflowContext startWorkflow(String caseId, List<String> beanNames, Map<String, Object> variableMap) {
+        WorkflowDefinition def = buildDefinition(beanNames);
         WorkflowVariables vars = convertVariables(variableMap);
         Entry<String, RuntimeService> rts = getDefaultRuntimeService();
         log.info("WorkflowEngine initialized using {}", rts.getKey());
@@ -54,8 +54,8 @@ public class WorkflowEngine {
         return rts.getValue().startCase(caseId, definition, vars, null);
     }
 
-    public WorkflowContext startWorkflow(String caseId,  List<String> taskNames, WorkflowVariables variables) {
-        WorkflowDefinition def = buildDefinition(taskNames);
+    public WorkflowContext startWorkflow(String caseId,  List<String> beanNames, WorkflowVariables variables) {
+        WorkflowDefinition def = buildDefinition(beanNames);
         Entry<String, RuntimeService> rts = getDefaultRuntimeService();
         log.info("WorkflowEngine initialized using {}", rts.getKey());
         return rts.getValue().startCase(caseId, def, variables, null);
@@ -68,8 +68,8 @@ public class WorkflowEngine {
     }
 
 
-    public WorkflowContext startWorkflow(String caseId, String engineName, List<String> taskNames, Map<String, Object> variableMap) {
-        WorkflowDefinition def = buildDefinition(taskNames);
+    public WorkflowContext startWorkflow(String caseId, String engineName, List<String> beanNames, Map<String, Object> variableMap) {
+        WorkflowDefinition def = buildDefinition(beanNames);
         WorkflowVariables vars = convertVariables(variableMap);
         RuntimeService rts = getRuntimeService(engineName);
         log.info("WorkflowEngine initialized using {}", engineName);
@@ -86,8 +86,8 @@ public class WorkflowEngine {
         return rts.startCase(caseId, definition, vars, null);
     }
 
-    public WorkflowContext startWorkflow(String caseId, String engineName,  List<String> taskNames, WorkflowVariables variables) {
-        WorkflowDefinition def = buildDefinition(taskNames);
+    public WorkflowContext startWorkflow(String caseId, String engineName,  List<String> beanNames, WorkflowVariables variables) {
+        WorkflowDefinition def = buildDefinition(beanNames);
         RuntimeService rts = getRuntimeService(engineName);
         log.info("WorkflowEngine initialized using {}", engineName);
         return rts.startCase(caseId, def, variables, null);
@@ -101,29 +101,29 @@ public class WorkflowEngine {
 
 
     /**
-     * Build workflow definition from a list of task names.
+     * Build workflow definition from a list of bean names.
      */
-    public WorkflowDefinition buildDefinition(List<String> taskNames) {
-        if (taskNames == null || taskNames.isEmpty()) {
+    public WorkflowDefinition buildDefinition(List<String> beanNames) {
+        if (beanNames == null || beanNames.isEmpty()) {
             throw new IllegalArgumentException("Task names list cannot be null or empty");
         }
 
         WorkflowDefinition def = new WorkflowDefinition();
 
-        // First pass: validate all task names exist
-        for (String taskName : taskNames) {
-            getTaskOrThrow(taskName);
+        // First pass: validate all bean names exist
+        for (String beanName : beanNames) {
+            getTaskOrThrow(beanName);
         }
 
         // Second pass: build workflow steps
-        for (int i = 0; i < taskNames.size(); i++) {
-            String current = taskNames.get(i);
-            String next = i < taskNames.size() - 1 ? taskNames.get(i + 1) : null;
-
+        for (int i = 0; i < beanNames.size(); i++) {
+            String current = beanNames.get(i);
+            String next = i < beanNames.size() - 1 ? beanNames.get(i + 1) : "end"; // Workflow ask for the last step to be name "end"
+            log.error(beanNames.toString());
             TaskDescriptor td = getTaskOrThrow(current);
-
+            log.info("new Task [ name : "+td.taskName()+", bean : "+td.beanName()+", next_step : "+ next+"]");
             Task step = new Task(
-                    td.taskName(),
+                    i==0?"start":td.taskName(), // Workflow ask for the first step to be "start"
                     td.beanName(),
                     next,
                     null
@@ -152,10 +152,10 @@ public class WorkflowEngine {
     /**
      * Fetch and validate task.
      */
-    private TaskDescriptor getTaskOrThrow(String taskName) {
-        TaskDescriptor td = taskScanner.getByTaskName(taskName);
+    private TaskDescriptor getTaskOrThrow(String bean) {
+        TaskDescriptor td = taskScanner.getByBeanName(bean);
         if (td == null)
-            throw new IllegalArgumentException("No @Task registered with name: " + taskName);
+            throw new IllegalArgumentException("No @Task registered with bean name: " + bean);
         return td;
     }
 

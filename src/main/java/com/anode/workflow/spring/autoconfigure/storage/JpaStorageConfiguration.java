@@ -1,44 +1,30 @@
 package com.anode.workflow.spring.autoconfigure.storage;
 
 import com.anode.tool.service.CommonService;
-import com.anode.workflow.spring.autoconfigure.properties.WorkflowProperties;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.EntityManagerFactory;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
 /**
  * JPA/Hibernate storage configuration for workflow engine.
  *
- * <p>This configuration is activated when:
- * <ul>
- *   <li>workflow.storage.type=jpa (or default)</li>
- *   <li>JPA is on the classpath</li>
- *   <li>EntityManagerFactory bean exists</li>
- * </ul>
- *
- * <p>Configuration example:
+ * <p>This bean is available when JPA is on the classpath and can be selected per engine:
  * <pre>
  * workflow:
- *   storage:
- *     type: jpa
- *   jpa:
- *     entity-manager-factory-ref: entityManagerFactory
+ *   engines:
+ *     - name: my-engine
+ *       storage:
+ *         type: jpa
  * </pre>
  */
 @Configuration
 @ConditionalOnClass(EntityManager.class)
-@ConditionalOnProperty(
-    prefix = "workflow.storage",
-    name = "type",
-    havingValue = "jpa",
-    matchIfMissing = true
-)
 public class JpaStorageConfiguration {
 
     private static final Logger logger = LoggerFactory.getLogger(JpaStorageConfiguration.class);
@@ -56,14 +42,12 @@ public class JpaStorageConfiguration {
      * </ul>
      *
      * @param entityManagerFactory the entity manager factory
-     * @param properties workflow properties
      * @return JPA-based common service implementation
      */
     @Bean
-    @ConditionalOnMissingBean(CommonService.class)
-    public CommonService jpaCommonService(
-            EntityManagerFactory entityManagerFactory,
-            WorkflowProperties properties) {
+    @ConditionalOnMissingBean(name = "jpaCommonService")
+    @ConditionalOnBean(EntityManagerFactory.class)
+    public CommonService jpaCommonService(EntityManagerFactory entityManagerFactory) {
 
         logger.info("Configuring JPA-based storage for workflow engine");
         logger.info("JPA storage configured successfully");

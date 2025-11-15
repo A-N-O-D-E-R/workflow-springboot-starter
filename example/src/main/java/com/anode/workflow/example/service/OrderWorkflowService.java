@@ -46,8 +46,8 @@ public class OrderWorkflowService {
         // Execute workflow using fluent builder API
         workflowFactory.builder(order.getOrderId())
             .engine("order-engine")              // Select the order processing engine
-            .task("validateordertask")           // Task 1: Validate order
-            .task("processpaymenttask")          // Task 2: Process payment
+            .task("validateOrderTask")           // Task 1: Validate order
+            .task("processPaymentTask")          // Task 2: Process payment
             .variable("order", order)            // Pass order as workflow variable
             .start();                            // Execute the workflow
 
