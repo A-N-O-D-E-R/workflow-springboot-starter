@@ -71,8 +71,8 @@ public class OrderService {
 
     public void processOrder(String orderId, Order order) {
         workflowFactory.builder(orderId)
-            .task("validateOrder")  // Define in the Task Anotation
-            .task("processPayment") // Define in the Task Anotation
+            .task("validateOrder")  // Task defined with @Task annotation
+            .task("processPayment") // Task defined with @Task annotation
             .variable("order", order)
             .start();
     }
@@ -198,8 +198,7 @@ public class MyCustomStorage implements CommonService {
 The `@Task` annotation automatically registers tasks with the workflow engine:
 
 ```java
-@Component("myTaskBean")  // Bean name
-@Task                     // Enables auto-discovery
+@Task  // Automatically discovered and registered as a Spring bean
 public class MyWorkflowTask implements InvokableTask {
     @Override
     public TaskResponse executeStep() {
@@ -208,9 +207,11 @@ public class MyWorkflowTask implements InvokableTask {
 }
 ```
 
+**Important:** `@Task` is meta-annotated with `@Component`, so you **don't need both** annotations. Using `@Task` alone is sufficient for Spring bean registration and auto-discovery.
+
 **Task Naming:**
 - Task name defaults to lowercase class name: `MyWorkflowTask` → `myworkflowtask`
-- Bean name from `@Component` or auto-derived from class name
+- Bean name is auto-derived from class name (e.g., `MyWorkflowTask` → `myWorkflowTask`)
 
 **Custom Task Properties:**
 
@@ -220,6 +221,7 @@ public class MyWorkflowTask implements InvokableTask {
     order = 10,                 // Execution order hint (optional)
     userData = "metadata"       // Custom metadata (optional)
 )
+public class MyWorkflowTask implements InvokableTask { ... }
 ```
 
 ### Task Scanning Configuration
@@ -555,9 +557,9 @@ workflowFactory.builder(orderId)
 
 **1. NoSuchBeanDefinitionException: No bean named 'myTask'**
 
-Ensure your task class has `@Component` with the correct bean name:
+Ensure your task class has the `@Task` annotation with the correct bean name:
 ```java
-@Task("myTask")
+@Task("myTask")  // Specifies custom bean name
 public class MyTask implements InvokableTask { ... }
 ```
 
