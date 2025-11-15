@@ -30,10 +30,30 @@ public final class BeanNameUtils {
         }
 
         String simpleName = clazz.getSimpleName();
-        if (simpleName.isEmpty()) {
-            throw new IllegalArgumentException("Class simple name cannot be empty");
+
+        // Anonymous classes have an empty simpleName → must be handled
+        if (simpleName == null || simpleName.isEmpty()) {
+            return deriveFromAnonymousClass(clazz);
+        }
+        
+        return Character.toLowerCase(simpleName.charAt(0)) + simpleName.substring(1);
+    }
+
+
+    private static String deriveFromAnonymousClass(Class<?> clazz) {
+        // Fallback: use enclosing class + "Anonymous"
+        Class<?> enclosing = clazz.getEnclosingClass();
+
+        if (enclosing != null) {
+            String base = enclosing.getSimpleName();
+            return Character.toLowerCase(base.charAt(0)) + base.substring(1) + "Anonymous";
         }
 
-        return Character.toLowerCase(simpleName.charAt(0)) + simpleName.substring(1);
+        // No enclosing class → last part of the class name
+        String name = clazz.getName();
+        String cleaned = name.substring(name.lastIndexOf('.') + 1)
+                            .replaceAll("[^a-zA-Z0-9]", "");
+
+        return cleaned.isEmpty() ? "anonymousBean" : cleaned;
     }
 }
