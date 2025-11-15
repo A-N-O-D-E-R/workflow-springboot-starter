@@ -161,7 +161,6 @@ public class FileStorageConfiguration {
             // - Parent directory references: .. (two or more dots)
             // Replace each dangerous character or pattern with an underscore
             String sanitized = id.replaceAll("[/\\\\:*?\"<>|\\x00]|\\.\\.+", "_");
-            System.out.println(sanitized);
             // Ensure sanitization didn't result in empty string
             if (sanitized.isEmpty() || sanitized.chars().allMatch(ch -> ch == '_')) {
                 throw new IllegalArgumentException(
