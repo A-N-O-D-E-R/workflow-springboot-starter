@@ -1,0 +1,29 @@
+server:
+  port: 8081
+
+spring:
+  application:
+    name: concurrent-workflow-execution
+
+# Workflow Configuration
+workflow:
+  engines:
+    - name: processing-engine
+      storage:
+        type: MEMORY  # Memory storage is thread-safe
+      sla:
+        enabled: false
+      event:
+        enabled: true
+      factory:
+        enabled: true
+
+  # Scan for @Task annotations in our example package
+  scan-base-package: com.anode.workflow.example.concurrent
+
+logging:
+  level:
+    com.anode.workflow: INFO
+    com.anode.workflow.example.concurrent: INFO
+  pattern:
+    console: "%d{HH:mm:ss.SSS} [%thread] - %msg%n"
