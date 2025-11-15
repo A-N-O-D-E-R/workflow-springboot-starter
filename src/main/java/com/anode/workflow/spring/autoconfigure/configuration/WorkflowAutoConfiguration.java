@@ -1,7 +1,7 @@
 package com.anode.workflow.spring.autoconfigure.configuration;
 
-import java.util.ArrayList;
-import java.util.List;
+import java.util.HashMap;
+import java.util.Map;
 
 import org.slf4j.LoggerFactory;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
@@ -26,13 +26,13 @@ public class WorkflowAutoConfiguration {
     private static final org.slf4j.Logger log = LoggerFactory.getLogger(WorkflowAutoConfiguration.class);
 
     @Bean
-    public List<RuntimeService> runtimeServices(
+    public Map<String,RuntimeService> runtimeServices(
             WorkflowEnginesProperties enginesProperties,
             ApplicationContext context,
             WorkflowService workflowService
     ) {
 
-        List<RuntimeService> services = new ArrayList<>();
+        Map<String, RuntimeService> services = new HashMap<>();
 
         for (WorkflowEnginesProperties.EngineConfig engine : enginesProperties.getEngines()) {
 
@@ -58,7 +58,7 @@ public class WorkflowAutoConfiguration {
                     slaQueueManager
             );
 
-            services.add(runtime);
+            services.put(engine.getName(),runtime);
         }
 
         return services;
@@ -67,8 +67,9 @@ public class WorkflowAutoConfiguration {
     private <T> T resolveOrDefault(ApplicationContext ctx, Class<T> type) {
         try {
             return ctx.getBean(type);
-        } catch (Exception e) {
-            return createDefault(type);
+        } catch (org.springframework.beans.factory.NoSuchBeanDefinitionException e) {
+            log.debug("No bean of type {} found, using default implementation", type.getSimpleName());
+            return createDefault(type, ctx);
         }
     }
 
@@ -118,10 +119,10 @@ public class WorkflowAutoConfiguration {
     }
 
     @SuppressWarnings("unchecked")
-    private <T> T createDefault(Class<T> type) {
+    private <T> T createDefault(Class<T> type, ApplicationContext ctx) {
         if (type.equals(EventHandler.class)) return (T) new NoOpsEventHandler();
         if (type.equals(SlaQueueManager.class)) return (T) new NoOpsSlaQueueManager();
-        if (type.equals(WorkflowComponantFactory.class)) return (T) new DefaultWorkflowComponentFactory();
+        if (type.equals(WorkflowComponantFactory.class)) return (T) new DefaultWorkflowComponentFactory(ctx);
         throw new IllegalArgumentException("Unknown default for " + type);
     }
 }

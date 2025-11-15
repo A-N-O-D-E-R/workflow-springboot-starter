@@ -12,6 +12,9 @@ import com.anode.workflow.service.WorkflowComponantFactory;
 
 public class WorkflowComponentFactoryRegistrar implements ImportBeanDefinitionRegistrar {
 
+    private static final String DEFAULT_BASE_PACKAGE = "com.anode";
+    private static final String SCAN_PACKAGE_PROPERTY = "workflow.component-factory.scan-base-package";
+
     @Override
     public void registerBeanDefinitions(AnnotationMetadata metadata, BeanDefinitionRegistry registry) {
 
@@ -19,8 +22,12 @@ public class WorkflowComponentFactoryRegistrar implements ImportBeanDefinitionRe
             PathMatchingResourcePatternResolver resolver = new PathMatchingResourcePatternResolver();
             MetadataReaderFactory readerFactory = new SimpleMetadataReaderFactory();
 
-            // Scan for annotated classes - limit scope for better performance
-            var resources = resolver.getResources("classpath*:com/**/*.class");
+            // Get base package from system property or use default
+            String basePackage = System.getProperty(SCAN_PACKAGE_PROPERTY, DEFAULT_BASE_PACKAGE);
+            String searchPath = "classpath*:" + basePackage.replace('.', '/') + "/**/*.class";
+
+            // Scan for annotated classes with more specific scope
+            var resources = resolver.getResources(searchPath);
 
             for (var resource : resources) {
                 if (!resource.isReadable()) continue;

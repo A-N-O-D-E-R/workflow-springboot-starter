@@ -14,10 +14,8 @@ import java.io.File;
 import java.io.IOException;
 import java.io.Serializable;
 import java.nio.file.Files;
-import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.*;
-import java.util.stream.Collectors;
 
 /**
  * File-based JSON storage configuration for workflow engine.
@@ -107,7 +105,9 @@ public class FileStorageConfiguration {
         public synchronized void delete(Serializable id) {
             File file = getFile(id);
             if (file.exists()) {
-                file.delete();
+                if (!file.delete()) {
+                    throw new RuntimeException("Failed to delete file: " + file.getAbsolutePath());
+                }
             }
         }
 
