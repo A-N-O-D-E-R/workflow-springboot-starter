@@ -14,10 +14,8 @@ import org.springframework.stereotype.Component;
  * Example workflow task that validates an order.
  *
  * Automatically registered with the workflow engine via @Task annotation.
- * Task name: "validateordertask" (lowercase class name by default)
  */
-@Component("validateOrderTask")
-@Task  // Auto-discovered by TaskScanner
+@Task("validateOrderTask") // Auto-discovered by TaskScanner
 @AllArgsConstructor
 public class ValidateOrderTask implements InvokableTask {
 
@@ -35,13 +33,13 @@ public class ValidateOrderTask implements InvokableTask {
             if (order.getAmount() != null && order.getAmount() > 0) {
                 order.setStatus("VALIDATED");
                 logger.info("Order {} validated successfully", order.getOrderId());
-                return new TaskResponse(StepResponseType.OK_PROCEED, null, null);
+                return new TaskResponse(StepResponseType.OK_PROCEED, null,  ".");
             } else {
                 order.setStatus("INVALID");
                 logger.warn("Order {} validation failed", order.getOrderId());
-                return new TaskResponse(StepResponseType.ERROR_PEND, null, null);
+                return new TaskResponse(StepResponseType.ERROR_PEND, null,  ".");
             }
         }
-        return new TaskResponse(StepResponseType.OK_PROCEED, null, null);
+        return new TaskResponse(StepResponseType.OK_PROCEED, null,  ".");
     }
 }

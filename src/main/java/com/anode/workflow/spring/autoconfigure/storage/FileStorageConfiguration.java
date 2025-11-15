@@ -1,12 +1,10 @@
 package com.anode.workflow.spring.autoconfigure.storage;
 
 import com.anode.tool.service.CommonService;
-import com.anode.workflow.spring.autoconfigure.properties.WorkflowProperties;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
@@ -20,32 +18,28 @@ import java.util.*;
 /**
  * File-based JSON storage configuration for workflow engine.
  *
- * <p>This configuration is activated when:
- * <ul>
- *   <li>workflow.storage.type=file</li>
- * </ul>
- *
- * <p>Configuration example:
+ * <p>This bean is always available and can be selected per engine:
  * <pre>
  * workflow:
- *   storage:
- *     type: file
- *     file-path: ./workflow-data
+ *   engines:
+ *     - name: my-engine
+ *       storage:
+ *         type: file
+ *         file-path: ./workflow-data
  * </pre>
  *
  * <p><b>WARNING:</b> This is suitable for development and small-scale testing only.
  * For production use, prefer JPA storage.
  */
 @Configuration
-@ConditionalOnProperty(prefix = "workflow.storage", name = "type", havingValue = "file")
 public class FileStorageConfiguration {
 
     private static final Logger logger = LoggerFactory.getLogger(FileStorageConfiguration.class);
 
     @Bean
-    @ConditionalOnMissingBean(CommonService.class)
-    public CommonService fileCommonService(WorkflowProperties properties) {
-        String filePath = properties.getStorage().getFilePath();
+    @ConditionalOnMissingBean(name = "fileCommonService")
+    public CommonService fileCommonService() {
+        String filePath = "./workflow-data";
 
         logger.warn("Configuring FILE-BASED storage for workflow engine");
         logger.warn("  Storage path: {}", filePath);

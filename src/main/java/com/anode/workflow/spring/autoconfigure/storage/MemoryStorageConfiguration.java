@@ -1,11 +1,9 @@
 package com.anode.workflow.spring.autoconfigure.storage;
 
 import com.anode.tool.service.CommonService;
-import com.anode.workflow.spring.autoconfigure.properties.WorkflowProperties;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
@@ -16,30 +14,26 @@ import java.util.stream.Collectors;
 /**
  * In-memory storage configuration for workflow engine.
  *
- * <p>This configuration is activated when:
- * <ul>
- *   <li>workflow.storage.type=memory</li>
- * </ul>
- *
- * <p>Configuration example:
+ * <p>This bean is always available and can be selected per engine:
  * <pre>
  * workflow:
- *   storage:
- *     type: memory
+ *   engines:
+ *     - name: my-engine
+ *       storage:
+ *         type: memory
  * </pre>
  *
  * <p><b>WARNING:</b> This is suitable for testing and development only.
  * All data is lost when the application restarts.
  */
 @Configuration
-@ConditionalOnProperty(prefix = "workflow.storage", name = "type", havingValue = "memory")
 public class MemoryStorageConfiguration {
 
     private static final Logger logger = LoggerFactory.getLogger(MemoryStorageConfiguration.class);
 
     @Bean
-    @ConditionalOnMissingBean(CommonService.class)
-    public CommonService memoryCommonService(WorkflowProperties properties) {
+    @ConditionalOnMissingBean(name = "memoryCommonService")
+    public CommonService memoryCommonService() {
         logger.warn("Configuring IN-MEMORY storage for workflow engine");
         logger.warn("  ⚠️  All workflow data will be lost on application restart");
         logger.warn("  ⚠️  Use only for development and testing");

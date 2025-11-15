@@ -5,6 +5,7 @@ import java.util.Map;
 
 import org.slf4j.LoggerFactory;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
+import org.springframework.boot.autoconfigure.AutoConfigureAfter;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.ApplicationContext;
 import org.springframework.context.annotation.Bean;
@@ -16,14 +17,28 @@ import com.anode.workflow.service.SlaQueueManager;
 import com.anode.workflow.service.WorkflowComponantFactory;
 import com.anode.workflow.service.runtime.RuntimeService;
 import com.anode.workflow.spring.autoconfigure.properties.WorkflowEnginesProperties;
+import com.anode.workflow.spring.autoconfigure.storage.FileStorageConfiguration;
+import com.anode.workflow.spring.autoconfigure.storage.JpaStorageConfiguration;
+import com.anode.workflow.spring.autoconfigure.storage.MemoryStorageConfiguration;
 import com.anode.workflow.spring.autoconfigure.impl.*;
 
 
 @AutoConfiguration
 @EnableConfigurationProperties(WorkflowEnginesProperties.class)
+@AutoConfigureAfter({
+        JpaStorageConfiguration.class,
+        MemoryStorageConfiguration.class,
+        FileStorageConfiguration.class
+})
 public class WorkflowAutoConfiguration {
 
     private static final org.slf4j.Logger log = LoggerFactory.getLogger(WorkflowAutoConfiguration.class);
+
+    @Bean
+    public WorkflowService workflowService() {
+        // Use the static singleton instance
+        return WorkflowService.instance();
+    }
 
     @Bean
     public Map<String,RuntimeService> runtimeServices(

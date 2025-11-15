@@ -14,10 +14,8 @@ import org.springframework.stereotype.Component;
  * Example workflow task that processes payment for an order.
  *
  * Automatically registered with the workflow engine via @Task annotation.
- * Task name: "processpaymenttask" (lowercase class name by default)
  */
-@Component("processPaymentTask")
-@Task  // Auto-discovered by TaskScanner
+@Task(value="processPaymentTask")  // Auto-discovered by TaskScanner
 @AllArgsConstructor
 public class ProcessPaymentTask implements InvokableTask {
 
@@ -36,13 +34,13 @@ public class ProcessPaymentTask implements InvokableTask {
                 order.setStatus("PAYMENT_PROCESSED");
                 logger.info("Payment processed for order {}, amount: ${}",
                     order.getOrderId(), order.getAmount());
-                return new TaskResponse(StepResponseType.OK_PROCEED, null, null);
+                return new TaskResponse(StepResponseType.OK_PROCEED, null, ".");
             } else {
                 logger.error("Cannot process payment for order {} - not validated",
                     order.getOrderId());
-                return new TaskResponse(StepResponseType.ERROR_PEND, null, null);
+                return new TaskResponse(StepResponseType.ERROR_PEND, null,  ".");
             }
         }
-        return new TaskResponse(StepResponseType.OK_PROCEED, null, null);
+        return new TaskResponse(StepResponseType.OK_PROCEED, null,  ".");
     }
 }
