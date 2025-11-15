@@ -1,0 +1,29 @@
+server:
+  port: 8080
+
+spring:
+  application:
+    name: complex-ecommerce-workflow
+
+# Workflow Configuration
+workflow:
+  engines:
+    - name: ecommerce-engine
+      storage:
+        type: MEMORY
+      sla:
+        enabled: false
+      event:
+        enabled: true
+      factory:
+        enabled: true
+
+  # Scan for @Task annotations in our example package
+  scan-base-package: com.anode.workflow.example.complex
+
+logging:
+  level:
+    com.anode.workflow: INFO
+    com.anode.workflow.example.complex: INFO
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss} - %msg%n"
