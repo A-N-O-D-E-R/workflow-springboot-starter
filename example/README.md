@@ -112,8 +112,7 @@ The application processes orders through a two-step workflow:
 Tasks are automatically discovered using the `@Task` annotation:
 
 ```java
-@Component("validateOrderTask")
-@Task  // Auto-discovered and registered
+@Task("validateOrderTask")  // Auto-discovered and registered Bean as Spring Component
 public class ValidateOrderTask implements InvokableTask {
     // Task implementation
 }
@@ -192,8 +191,7 @@ workflow:
 
 **ValidateOrderTask.java:**
 ```java
-@Component("validateOrderTask")  // Spring bean name
-@Task                             // Auto-discovered by TaskScanner
+@Task("validateOrderTask")                    // Auto-discovered by TaskScanner
 public class ValidateOrderTask implements InvokableTask {
 
     @Override
@@ -209,7 +207,6 @@ public class ValidateOrderTask implements InvokableTask {
 ```
 
 **Key Points:**
-- `@Component("validateOrderTask")` - Defines the Spring bean
 - `@Task` - Marks for automatic workflow registration
 - Task name: `validateordertask` (lowercase class name)
 
@@ -230,8 +227,8 @@ public class OrderWorkflowService {
         // Build and execute workflow using fluent API
         workflowFactory.builder(orderId)
             .engine("order-engine")                  // Select engine
-            .task("validateordertask")               // First task
-            .task("processpaymenttask")              // Second task
+            .task("validateOrderTask")               // First task (use bean name)
+            .task("processPaymentTask")              // Second task (use bean name)
             .variable("order", order)                // Pass order as variable
             .start();                                // Execute workflow
 
@@ -314,8 +311,7 @@ curl -X POST http://localhost:8080/api/orders \
 **1. Create the Task Class:**
 
 ```java
-@Component("sendConfirmationTask")
-@Task
+@Task("sendConfirmationTask")
 public class SendConfirmationTask implements InvokableTask {
 
     @Override
@@ -331,9 +327,9 @@ public class SendConfirmationTask implements InvokableTask {
 
 ```java
 workflowFactory.builder(orderId)
-    .task("validateordertask")
-    .task("processpaymenttask")
-    .task("sendconfirmationtask")  // ← New task
+    .task("validateOrderTask")
+    .task("processpaymentTask")
+    .task("sendConfirmationTask")  // ← New task
     .variable("order", order)
     .start();
 ```
@@ -420,13 +416,13 @@ logging:
 
 **Error:**
 ```
-IllegalArgumentException: No @Task registered with name: mytask
+IllegalArgumentException: No @Task registered with bean name: myTask
 ```
 
 **Solution:** Ensure task class name matches:
 ```java
-// Class: MyTask → task name: "mytask" (lowercase)
-workflowFactory.builder("case").task("mytask").start();
+// Class: MyTask → @Task("myTusk")  → "myTusk" is the bean Name
+workflowFactory.builder("case").task("myTusk").start();
 ```
 
 ### Bean Not Found
@@ -436,10 +432,9 @@ workflowFactory.builder("case").task("mytask").start();
 NoSuchBeanDefinitionException: No bean named 'myTask'
 ```
 
-**Solution:** Add `@Component` to your task class:
+**Solution:** Add a String to`@Task` to your task class:
 ```java
-@Component("myTask")  // ← Required
-@Task
+@Task("myTask")// ← Required
 public class MyTask implements InvokableTask { ... }
 ```
 
