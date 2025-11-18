@@ -5,27 +5,29 @@ import com.anode.workflow.entities.steps.responses.StepResponseType;
 import com.anode.workflow.entities.steps.responses.TaskResponse;
 import com.anode.workflow.spring.autoconfigure.annotations.Task;
 import com.anode.workflow.example.complex.model.OrderRequest;
+import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
 import java.math.BigDecimal;
 
 @Slf4j
-@Task
+@Task("sendconfirmationemailtask")
+@AllArgsConstructor
 public class SendConfirmationEmailTask implements InvokableTask {
+
+    private final Object context;
 
     @Override
     public TaskResponse executeStep() {
         log.info("==> Executing SendConfirmationEmailTask");
 
-        OrderRequest order = (OrderRequest) getWorkflowContext().getVariables().getValue("order");
-        BigDecimal finalAmount = (BigDecimal) getWorkflowContext().getVariables().getValue("finalAmount");
-        String trackingNumber = (String) getWorkflowContext().getVariables().getValue("trackingNumber");
+        if (context instanceof OrderRequest order) {
+            log.info("Sending confirmation email to: {}", order.getCustomerEmail());
+            log.info("Order ID: {}", order.getOrderId());
+            log.info("Order Amount: {}", order.getTotalAmount());
+            log.info("Confirmation email sent successfully");
+        }
 
-        log.info("Sending confirmation email to: {}", order.getCustomerEmail());
-        log.info("Order ID: {}", order.getOrderId());
-        log.info("Final Amount: {}", finalAmount);
-        log.info("Tracking Number: {}", trackingNumber);
-
-        return new TaskResponse(StepResponseType.OK_PROCEED, null, null);
+        return new TaskResponse(StepResponseType.OK_PROCEED, null, ".");
     }
 }

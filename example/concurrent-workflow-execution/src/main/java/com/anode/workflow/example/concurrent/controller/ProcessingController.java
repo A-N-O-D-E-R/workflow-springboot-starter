@@ -24,7 +24,7 @@ public class ProcessingController {
     private final ConcurrentWorkflowService workflowService;
 
     /**
-     * Process a single request asynchronously.
+     * Process a single request asynchronously using default strategy.
      */
     @PostMapping("/single")
     public ResponseEntity<Map<String, String>> processSingle(@RequestBody DataProcessingRequest request) {
@@ -39,6 +39,28 @@ public class ProcessingController {
             "status", "accepted",
             "requestId", request.getRequestId(),
             "message", "Processing started asynchronously"
+        ));
+    }
+
+    /**
+     * Process a single request asynchronously using a specific strategy.
+     */
+    @PostMapping("/single/{strategy}")
+    public ResponseEntity<Map<String, String>> processSingleWithStrategy(
+            @RequestBody DataProcessingRequest request,
+            @PathVariable String strategy) {
+        if (request.getRequestId() == null) {
+            request.setRequestId("REQ-" + UUID.randomUUID().toString().substring(0, 8));
+        }
+        request.setSubmittedAt(System.currentTimeMillis());
+
+        workflowService.processRequestAsync(request, strategy);
+
+        return ResponseEntity.ok(Map.of(
+            "status", "accepted",
+            "requestId", request.getRequestId(),
+            "strategy", strategy,
+            "message", "Processing started with " + strategy + " strategy"
         ));
     }
 
@@ -111,6 +133,18 @@ public class ProcessingController {
     }
 
     /**
+     * Get available engine selection strategies.
+     */
+    @GetMapping("/strategies")
+    public ResponseEntity<Map<String, Object>> getStrategies() {
+        return ResponseEntity.ok(Map.of(
+            "available", workflowService.getAvailableStrategies(),
+            "default", workflowService.getDefaultStrategy(),
+            "engines", workflowService.getAvailableEngines()
+        ));
+    }
+
+    /**
      * Reset workflow statistics.
      */
     @PostMapping("/stats/reset")
@@ -126,7 +160,7 @@ public class ProcessingController {
      * Stress test - process many workflows concurrently.
      */
     @PostMapping("/stress-test")
-    public ResponseEntity<Map<String, Object>> stressTest(@RequestParam(defaultValue = "100") int count) {
+    public ResponseEntity<Map<String, Object>> stressTest(@RequestParam("count") Integer count) {
         List<DataProcessingRequest> requests = generateRequests(count);
 
         long startTime = System.currentTimeMillis();

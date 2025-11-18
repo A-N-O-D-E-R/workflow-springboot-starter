@@ -7,8 +7,32 @@ spring:
 
 # Workflow Configuration
 workflow:
+  # Engine Selection Strategy Configuration
+  engine-selection:
+    # Available strategies:
+    # - ROUND_ROBIN: Distributes requests evenly in circular fashion
+    # - PRIORITY_BASED: Routes by priority (high → engine-0, low → engine-3)
+    # - HASH_BASED: Consistent hashing on request ID
+    # - TYPE_BASED: Routes by processing type (VIDEO, IMAGE, etc.)
+    # - RANDOM: Random distribution
+    # - USER_AFFINITY: Same user always routes to same engine
+    strategy: ROUND_ROBIN
+
+    # Available engine names (must match engine configurations below)
+    available-engines: processing-engine-0,processing-engine-1,processing-engine-2,processing-engine-3
+
+  # Retry Configuration for RuntimeBusyException
+  # When RuntimeService is busy starting another case, the service will retry with exponential backoff
+  retry:
+    # Maximum number of retry attempts before giving up
+    max-attempts: 5
+    # Initial backoff delay in milliseconds
+    initial-backoff-ms: 100
+    # Maximum backoff delay in milliseconds (backoff doubles each retry)
+    max-backoff-ms: 5000
+
   engines:
-    - name: processing-engine
+    - name: processing-engine-0
       storage:
         type: MEMORY  # Memory storage is thread-safe
       sla:
@@ -17,6 +41,34 @@ workflow:
         enabled: true
       factory:
         enabled: true
+    - name: processing-engine-1
+      storage:
+        type: MEMORY  # Memory storage is thread-safe
+      sla:
+        enabled: false
+      event:
+        enabled: true
+      factory:
+        enabled: true
+    - name: processing-engine-2
+      storage:
+        type: MEMORY  # Memory storage is thread-safe
+      sla:
+        enabled: false
+      event:
+        enabled: true
+      factory:
+        enabled: true
+    - name: processing-engine-3
+      storage:
+        type: MEMORY  # Memory storage is thread-safe
+      sla:
+        enabled: false
+      event:
+        enabled: true
+      factory:
+        enabled: true
+
 
   # Scan for @Task annotations in our example package
   scan-base-package: com.anode.workflow.example.concurrent

@@ -5,39 +5,39 @@ import com.anode.workflow.entities.steps.responses.StepResponseType;
 import com.anode.workflow.entities.steps.responses.TaskResponse;
 import com.anode.workflow.spring.autoconfigure.annotations.Task;
 import com.anode.workflow.example.concurrent.model.DataProcessingRequest;
+import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
-@Task
+@Task("processdatatask")
+@AllArgsConstructor
 public class ProcessDataTask implements InvokableTask {
+
+    private final Object context;
 
     @Override
     public TaskResponse executeStep() {
-        DataProcessingRequest request = (DataProcessingRequest) getWorkflowContext()
-            .getVariables()
-            .getValue("request");
+        if (context instanceof DataProcessingRequest request) {
+            log.info("[{}] Processing {} data items...",
+                request.getRequestId(), request.getDataItems().size());
 
-        log.info("[{}] Processing {} data items...",
-            request.getRequestId(), request.getDataItems().size());
+            long startTime = System.currentTimeMillis();
 
-        long startTime = System.currentTimeMillis();
+            // Simulate heavy processing
+            int processedCount = 0;
+            for (String item : request.getDataItems()) {
+                simulateHeavyProcessing(request.getType());
+                processedCount++;
+            }
 
-        // Simulate heavy processing
-        int processedCount = 0;
-        for (String item : request.getDataItems()) {
-            simulateHeavyProcessing(request.getType());
-            processedCount++;
+            long duration = System.currentTimeMillis() - startTime;
+
+            log.info("[{}] Processed {} items in {}ms",
+                request.getRequestId(), processedCount, duration);
+
+            return new TaskResponse(StepResponseType.OK_PROCEED, null, ".");
         }
-
-        long duration = System.currentTimeMillis() - startTime;
-
-        log.info("[{}] Processed {} items in {}ms",
-            request.getRequestId(), processedCount, duration);
-
-        getWorkflowContext().getVariables().setValue("processedCount", processedCount);
-        getWorkflowContext().getVariables().setValue("processingDuration", duration);
-
-        return new TaskResponse(StepResponseType.OK_PROCEED, null, null);
+        return new TaskResponse(StepResponseType.ERROR_PEND, "Invalid context", ".");
     }
 
     private void simulateHeavyProcessing(DataProcessingRequest.ProcessingType type) {
