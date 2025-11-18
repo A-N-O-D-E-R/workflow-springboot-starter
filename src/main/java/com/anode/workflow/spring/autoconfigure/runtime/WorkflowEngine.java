@@ -53,6 +53,8 @@ import com.anode.workflow.spring.autoconfigure.scanner.TaskScanner.TaskDescripto
  * @see FluentWorkflowBuilder
  */
 public class WorkflowEngine {
+      private static final String START_STEP = "start";
+    private static final String END_STEP = "end";
 
     private static final Logger log =
             LoggerFactory.getLogger(WorkflowEngine.class);
@@ -160,10 +162,10 @@ public class WorkflowEngine {
         // Second pass: build workflow steps
         for (int i = 0; i < beanNames.size(); i++) {
             String current = beanNames.get(i);
-            String next = i < beanNames.size() - 1 ? beanNames.get(i + 1) : "end"; // Workflow ask for the last step to be name "end"
+            String next = i < beanNames.size() - 1 ? beanNames.get(i + 1) : END_STEP; // Workflow ask for the last step to be name END_STEP"
             TaskDescriptor td = getTaskOrThrow(current);
             Task step = new Task(
-                    i==0?"start":td.taskName(), // Workflow ask for the first step to be "start"
+                    i==0?START_STEP:td.taskName(), // Workflow ask for the first step to be START_STEP
                     td.beanName(),
                     next,
                     null

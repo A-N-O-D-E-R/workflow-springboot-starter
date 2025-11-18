@@ -5,25 +5,24 @@ import com.anode.workflow.entities.steps.responses.StepResponseType;
 import com.anode.workflow.entities.steps.responses.TaskResponse;
 import com.anode.workflow.spring.autoconfigure.annotations.Task;
 import com.anode.workflow.example.concurrent.model.DataProcessingRequest;
+import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
-@Task
+@Task("notifyusertask")
+@AllArgsConstructor
 public class NotifyUserTask implements InvokableTask {
+
+    private final Object context;
 
     @Override
     public TaskResponse executeStep() {
-        DataProcessingRequest request = (DataProcessingRequest) getWorkflowContext()
-            .getVariables()
-            .getValue("request");
+        if (context instanceof DataProcessingRequest request) {
+            log.info("[{}] Notifying user {}",
+                request.getRequestId(), request.getUserId());
 
-        String resultId = (String) getWorkflowContext()
-            .getVariables()
-            .getValue("resultId");
-
-        log.info("[{}] Notifying user {} - Result: {}",
-            request.getRequestId(), request.getUserId(), resultId);
-
-        return new TaskResponse(StepResponseType.OK_PROCEED, null, null);
+            return new TaskResponse(StepResponseType.OK_PROCEED, null, ".");
+        }
+        return new TaskResponse(StepResponseType.ERROR_PEND, "Invalid context", ".");
     }
 }

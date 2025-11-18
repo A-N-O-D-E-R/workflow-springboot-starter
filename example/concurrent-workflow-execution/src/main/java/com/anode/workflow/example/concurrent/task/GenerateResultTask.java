@@ -5,41 +5,35 @@ import com.anode.workflow.entities.steps.responses.StepResponseType;
 import com.anode.workflow.entities.steps.responses.TaskResponse;
 import com.anode.workflow.spring.autoconfigure.annotations.Task;
 import com.anode.workflow.example.concurrent.model.DataProcessingRequest;
+import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
-@Task
+@Task("generateresulttask")
+@AllArgsConstructor
 public class GenerateResultTask implements InvokableTask {
+
+    private final Object context;
 
     @Override
     public TaskResponse executeStep() {
-        DataProcessingRequest request = (DataProcessingRequest) getWorkflowContext()
-            .getVariables()
-            .getValue("request");
+        if (context instanceof DataProcessingRequest request) {
+            log.info("[{}] Generating result",
+                request.getRequestId());
 
-        Integer processedCount = (Integer) getWorkflowContext()
-            .getVariables()
-            .getValue("processedCount");
+            // Simulate result generation
+            try {
+                Thread.sleep(100);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+            }
 
-        Long duration = (Long) getWorkflowContext()
-            .getVariables()
-            .getValue("processingDuration");
+            String resultId = "RESULT-" + request.getRequestId();
 
-        log.info("[{}] Generating result - Processed: {}, Duration: {}ms",
-            request.getRequestId(), processedCount, duration);
+            log.info("[{}] Result generated: {}", request.getRequestId(), resultId);
 
-        // Simulate result generation
-        try {
-            Thread.sleep(100);
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
+            return new TaskResponse(StepResponseType.OK_PROCEED, null, ".");
         }
-
-        String resultId = "RESULT-" + request.getRequestId();
-        getWorkflowContext().getVariables().setValue("resultId", resultId);
-
-        log.info("[{}] Result generated: {}", request.getRequestId(), resultId);
-
-        return new TaskResponse(StepResponseType.OK_PROCEED, null, null);
+        return new TaskResponse(StepResponseType.ERROR_PEND, "Invalid context", ".");
     }
 }

@@ -31,7 +31,6 @@ public class ComplexOrderWorkflowService {
      * <p>Workflow Steps:
      * <ol>
      *   <li>Validate Order - Basic validation</li>
-     *   <li>Customer Type Route - Conditional routing</li>
      *   <li>Apply Discount - For VIP/Corporate customers</li>
      *   <li>Check Inventory - Verify stock availability</li>
      *   <li>Reserve Inventory - Reserve items</li>
@@ -51,44 +50,39 @@ public class ComplexOrderWorkflowService {
         log.info("================================================");
 
         workflowFactory.builder(order.getOrderId())
+            .engine("ecommerce-engine")
             // Step 1: Validate order data
             .task("validateordertask")
 
-            // Step 2: Route based on customer type
-            // This demonstrates conditional routing
-            .task("customertyperoute")
-
-            // Step 3: Apply discounts (for VIP/Corporate)
-            // May be skipped for regular customers via route
+            // Step 2: Apply discounts (for VIP/Corporate customers)
             .task("applydiscounttask")
 
-            // Step 4: Check inventory availability
+            // Step 3: Check inventory availability
             .task("checkinventorytask")
 
-            // Step 5: Reserve inventory items
+            // Step 4: Reserve inventory items
             .task("reserveinventorytask")
 
-            // Step 6: Calculate shipping costs
+            // Step 5: Calculate shipping costs
             .task("calculateshippingtask")
 
-            // Step 7: Process payment
+            // Step 6: Process payment
             .task("processpaymenttask")
 
-            // Step 8: Update inventory levels
+            // Step 7: Update inventory levels
             .task("updateinventorytask")
 
-            // Step 9: Notify warehouse for fulfillment
+            // Step 8: Notify warehouse for fulfillment
             .task("notifywarehousetask")
 
-            // Step 10: Arrange shipping
+            // Step 9: Arrange shipping
             .task("arrangeshippingtask")
 
-            // Step 11: Send confirmation email
+            // Step 10: Send confirmation email
             .task("sendconfirmationemailtask")
 
             // Add workflow variables
             .variable("order", order)
-            .variable("workflowStartTime", System.currentTimeMillis())
 
             // Execute the workflow
             .start();
