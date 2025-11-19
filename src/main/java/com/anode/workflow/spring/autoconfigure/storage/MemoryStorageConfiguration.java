@@ -47,59 +47,92 @@ public class MemoryStorageConfiguration {
     /**
      * Simple in-memory implementation of CommonService.
      *
-     * <p>Uses HashMaps to store all entities in memory.
+     * <p>Uses concurrent data structures to store all entities in memory safely.
+     * <p>Provides thread-safe locking mechanism with explicit lock release.
      */
     private static class MemoryCommonService implements CommonService {
-        private final Map<Serializable, Object> storage = new HashMap<>();
-        private final Map<String, Long> counters = new HashMap<>();
-        private final Map<Serializable, Boolean> locks = new HashMap<>();
+        private final Map<Serializable, Object> storage = new java.util.concurrent.ConcurrentHashMap<>();
+        private final Map<String, java.util.concurrent.atomic.AtomicLong> counters = new java.util.concurrent.ConcurrentHashMap<>();
+        private final Map<Serializable, java.util.concurrent.atomic.AtomicBoolean> locks = new java.util.concurrent.ConcurrentHashMap<>();
 
         @Override
-        public synchronized void save(Serializable id, Object object) {
+        public void save(Serializable id, Object object) {
             storage.putIfAbsent(id, object);
         }
 
         @Override
-        public synchronized void update(Serializable id, Object object) {
-            if (storage.containsKey(id)) {
-                storage.put(id, object);
-            }
+        public void update(Serializable id, Object object) {
+            storage.computeIfPresent(id, (k, v) -> object);
         }
 
         @Override
-        public synchronized void saveOrUpdate(Serializable id, Object object) {
+        public void saveOrUpdate(Serializable id, Object object) {
             storage.put(id, object);
         }
 
         @Override
-        public synchronized void delete(Serializable id) {
+        public void delete(Serializable id) {
             storage.remove(id);
             locks.remove(id);
         }
 
         @Override
-        public synchronized <T> T get(Class<T> objectClass, Serializable id) {
+        public <T> T get(Class<T> objectClass, Serializable id) {
             Object obj = storage.get(id);
             return objectClass.isInstance(obj) ? objectClass.cast(obj) : null;
         }
 
         @Override
-        public synchronized <T> T getLocked(Class<T> objectClass, Serializable id) {
+        public <T> T getLocked(Class<T> objectClass, Serializable id) {
             if (!storage.containsKey(id)) {
                 throw new IllegalArgumentException("Object with ID " + id + " does not exist");
             }
 
-            if (locks.getOrDefault(id, false)) {
+            // Use atomic compareAndSet to ensure thread-safe locking
+            java.util.concurrent.atomic.AtomicBoolean lock =
+                locks.computeIfAbsent(id, k -> new java.util.concurrent.atomic.AtomicBoolean(false));
+
+            if (!lock.compareAndSet(false, true)) {
                 throw new IllegalStateException("Object with ID " + id + " is already locked");
             }
 
-            locks.put(id, true);
             return get(objectClass, id);
+        }
+
+        /**
+         * Releases the lock on an object.
+         *
+         * <p>This method should be called after processing a locked object to prevent deadlocks.
+         *
+         * @param id the object ID to unlock
+         * @throws IllegalStateException if the object is not locked
+         */
+        public void unlock(Serializable id) {
+            java.util.concurrent.atomic.AtomicBoolean lock = locks.get(id);
+
+            if (lock == null || !lock.get()) {
+                throw new IllegalStateException("Object with ID " + id + " is not locked");
+            }
+
+            if (!lock.compareAndSet(true, false)) {
+                throw new IllegalStateException("Failed to release lock for object with ID " + id);
+            }
+        }
+
+        /**
+         * Checks if an object is currently locked.
+         *
+         * @param id the object ID
+         * @return true if the object is locked, false otherwise
+         */
+        public boolean isLocked(Serializable id) {
+            java.util.concurrent.atomic.AtomicBoolean lock = locks.get(id);
+            return lock != null && lock.get();
         }
 
 
         @Override
-        public synchronized void saveCollection(Collection objects) {
+        public void saveCollection(Collection objects) {
             for (Object obj : objects) {
                 // Generate unique ID for each object
                 Serializable id = java.util.UUID.randomUUID().toString();
@@ -108,7 +141,7 @@ public class MemoryStorageConfiguration {
         }
 
         @Override
-        public synchronized void saveOrUpdateCollection(Collection objects) {
+        public void saveOrUpdateCollection(Collection objects) {
             for (Object obj : objects) {
                 // Generate unique ID for each object
                 Serializable id = java.util.UUID.randomUUID().toString();
@@ -155,11 +188,10 @@ public class MemoryStorageConfiguration {
         }
 
         @Override
-        public synchronized long incrCounter(String counterName) {
-            Long value = counters.getOrDefault(counterName, 0L);
-            value++;
-            counters.put(counterName, value);
-            return value;
+        public long incrCounter(String counterName) {
+            java.util.concurrent.atomic.AtomicLong counter =
+                counters.computeIfAbsent(counterName, k -> new java.util.concurrent.atomic.AtomicLong(0));
+            return counter.incrementAndGet();
         }
 
         @Override

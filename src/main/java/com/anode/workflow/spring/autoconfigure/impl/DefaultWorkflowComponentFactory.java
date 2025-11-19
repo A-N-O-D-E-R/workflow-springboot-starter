@@ -1,8 +1,6 @@
 package com.anode.workflow.spring.autoconfigure.impl;
 
 import org.springframework.beans.factory.ObjectProvider;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.context.ApplicationContext;
 import org.springframework.stereotype.Service;
 
 import com.anode.workflow.entities.steps.InvokableRoute;
@@ -18,8 +16,6 @@ import java.util.stream.Collectors;
 @Service
 public class DefaultWorkflowComponentFactory implements WorkflowComponantFactory {
 
-    private final ApplicationContext context;
-
     private final ObjectProvider<InvokableTask> taskProvider;
 
     private final ObjectProvider<InvokableRoute> routeProvider;
@@ -29,11 +25,9 @@ public class DefaultWorkflowComponentFactory implements WorkflowComponantFactory
     private Map<String, InvokableRoute> routeBeans;
 
     public DefaultWorkflowComponentFactory(
-            ApplicationContext context,
             ObjectProvider<InvokableTask> taskProvider,
             ObjectProvider<InvokableRoute> routeProvider
     ) {
-        this.context = context;
         this.taskProvider = taskProvider;
         this.routeProvider = routeProvider;
     }

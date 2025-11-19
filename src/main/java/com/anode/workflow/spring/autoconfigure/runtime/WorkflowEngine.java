@@ -79,8 +79,15 @@ public class WorkflowEngine {
 
     /**
      * Start a workflow given a sequence of task names.
+     *
+     * @param caseId unique case identifier (cannot be null or empty)
+     * @param beanNames list of task bean names
+     * @param variableMap workflow variables
+     * @return workflow context
+     * @throws IllegalArgumentException if caseId is null/empty or beanNames is invalid
      */
     public WorkflowContext startWorkflow(String caseId, List<String> beanNames, Map<String, Object> variableMap) {
+        validateCaseId(caseId);
         WorkflowDefinition def = buildDefinition(beanNames);
         WorkflowVariables vars = convertVariables(variableMap);
         Entry<String, RuntimeService> rts = getDefaultRuntimeService();
@@ -92,6 +99,7 @@ public class WorkflowEngine {
      * Start a workflow given a workflow definition.
      */
     public WorkflowContext startWorkflow(String caseId, WorkflowDefinition definition, Map<String, Object> variableMap) {
+        validateCaseId(caseId);
         WorkflowVariables vars = convertVariables(variableMap);
         Entry<String, RuntimeService> rts = getDefaultRuntimeService();
         log.info("WorkflowEngine initialized using {}", rts.getKey());
@@ -99,6 +107,7 @@ public class WorkflowEngine {
     }
 
     public WorkflowContext startWorkflow(String caseId,  List<String> beanNames, WorkflowVariables variables) {
+        validateCaseId(caseId);
         WorkflowDefinition def = buildDefinition(beanNames);
         Entry<String, RuntimeService> rts = getDefaultRuntimeService();
         log.info("WorkflowEngine initialized using {}", rts.getKey());
@@ -106,6 +115,7 @@ public class WorkflowEngine {
     }
 
     public WorkflowContext startWorkflow(String caseId, WorkflowDefinition definition, WorkflowVariables variables) {
+        validateCaseId(caseId);
         Entry<String, RuntimeService> rts = getDefaultRuntimeService();
         log.info("WorkflowEngine initialized using {}", rts.getKey());
         return rts.getValue().startCase(caseId, definition, variables, null);
@@ -113,6 +123,7 @@ public class WorkflowEngine {
 
 
     public WorkflowContext startWorkflow(String caseId, String engineName, List<String> beanNames, Map<String, Object> variableMap) {
+        validateCaseId(caseId);
         WorkflowDefinition def = buildDefinition(beanNames);
         WorkflowVariables vars = convertVariables(variableMap);
         RuntimeService rts = getRuntimeService(engineName);
@@ -124,6 +135,7 @@ public class WorkflowEngine {
      * Start a workflow given a workflow definition.
      */
     public WorkflowContext startWorkflow(String caseId, String engineName, WorkflowDefinition definition, Map<String, Object> variableMap) {
+        validateCaseId(caseId);
         WorkflowVariables vars = convertVariables(variableMap);
         RuntimeService rts = getRuntimeService(engineName);
         log.info("WorkflowEngine initialized using {}", engineName);
@@ -131,6 +143,7 @@ public class WorkflowEngine {
     }
 
     public WorkflowContext startWorkflow(String caseId, String engineName,  List<String> beanNames, WorkflowVariables variables) {
+        validateCaseId(caseId);
         WorkflowDefinition def = buildDefinition(beanNames);
         RuntimeService rts = getRuntimeService(engineName);
         log.info("WorkflowEngine initialized using {}", engineName);
@@ -138,6 +151,7 @@ public class WorkflowEngine {
     }
 
     public WorkflowContext startWorkflow(String caseId, String engineName, WorkflowDefinition definition, WorkflowVariables variables) {
+        validateCaseId(caseId);
         RuntimeService rts = getRuntimeService(engineName);
         log.info("WorkflowEngine initialized using {}", engineName);
         return rts.startCase(caseId, definition, variables, null);
@@ -146,18 +160,43 @@ public class WorkflowEngine {
 
     /**
      * Build workflow definition from a list of bean names.
+     *
+     * @param beanNames list of task bean names
+     * @return workflow definition
+     * @throws IllegalArgumentException if beanNames is null, empty, contains null/empty entries, or has duplicates
      */
     public WorkflowDefinition buildDefinition(List<String> beanNames) {
+        // Validate list is not null or empty
         if (beanNames == null || beanNames.isEmpty()) {
             throw new IllegalArgumentException("Task names list cannot be null or empty");
         }
 
-        WorkflowDefinition def = new WorkflowDefinition();
+        // Track seen bean names to detect duplicates
+        java.util.Set<String> seenNames = new java.util.HashSet<>();
 
-        // First pass: validate all bean names exist
-        for (String beanName : beanNames) {
+        // First pass: validate all bean names
+        for (int i = 0; i < beanNames.size(); i++) {
+            String beanName = beanNames.get(i);
+
+            // Check for null or empty
+            if (beanName == null || beanName.trim().isEmpty()) {
+                throw new IllegalArgumentException(
+                    String.format("Task name at index %d cannot be null or empty", i));
+            }
+
+            // Check for duplicates
+            if (seenNames.contains(beanName)) {
+                throw new IllegalArgumentException(
+                    String.format("Duplicate task name '%s' found at index %d. Each task must be unique in the workflow.",
+                                  beanName, i));
+            }
+            seenNames.add(beanName);
+
+            // Validate bean exists in registry
             getTaskOrThrow(beanName);
         }
+
+        WorkflowDefinition def = new WorkflowDefinition();
 
         // Second pass: build workflow steps
         for (int i = 0; i < beanNames.size(); i++) {
@@ -189,6 +228,18 @@ public class WorkflowEngine {
         });
 
         return vars;
+    }
+
+    /**
+     * Validate case ID is not null or empty.
+     *
+     * @param caseId the case ID to validate
+     * @throws IllegalArgumentException if caseId is null or empty
+     */
+    private void validateCaseId(String caseId) {
+        if (caseId == null || caseId.trim().isEmpty()) {
+            throw new IllegalArgumentException("Case ID cannot be null or empty");
+        }
     }
 
     /**

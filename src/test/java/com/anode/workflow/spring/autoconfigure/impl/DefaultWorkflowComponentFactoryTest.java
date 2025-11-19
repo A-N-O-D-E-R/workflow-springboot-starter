@@ -38,7 +38,7 @@ class DefaultWorkflowComponentFactoryTest {
         when(mockTaskProvider.stream()).thenReturn(Stream.empty());
         when(mockRouteProvider.stream()).thenReturn(Stream.empty());
 
-        factory = new DefaultWorkflowComponentFactory(mockContext, mockTaskProvider, mockRouteProvider);
+        factory = new DefaultWorkflowComponentFactory(mockTaskProvider, mockRouteProvider);
         factory.init();
     }
 
@@ -63,7 +63,7 @@ class DefaultWorkflowComponentFactoryTest {
         when(taskProvider.stream()).thenReturn(Stream.of(mockTask));
         when(emptyRouteProvider.stream()).thenReturn(Stream.empty());
 
-        factory = new DefaultWorkflowComponentFactory(mockContext, taskProvider, emptyRouteProvider);
+        factory = new DefaultWorkflowComponentFactory(taskProvider, emptyRouteProvider);
         factory.init();
 
         // When
@@ -98,7 +98,7 @@ class DefaultWorkflowComponentFactoryTest {
         when(emptyTaskProvider.stream()).thenReturn(Stream.empty());
         when(emptyRouteProvider.stream()).thenReturn(Stream.empty());
 
-        factory = new DefaultWorkflowComponentFactory(mockContext, emptyTaskProvider, emptyRouteProvider);
+        factory = new DefaultWorkflowComponentFactory(emptyTaskProvider, emptyRouteProvider);
         factory.init();
 
         // When/Then
@@ -174,7 +174,7 @@ class DefaultWorkflowComponentFactoryTest {
         when(emptyTaskProvider.stream()).thenReturn(Stream.empty());
         when(routeProvider.stream()).thenReturn(Stream.of(mockRoute));
 
-        factory = new DefaultWorkflowComponentFactory(mockContext, emptyTaskProvider, routeProvider);
+        factory = new DefaultWorkflowComponentFactory(emptyTaskProvider, routeProvider);
         factory.init();
 
         // When
@@ -199,7 +199,7 @@ class DefaultWorkflowComponentFactoryTest {
         when(emptyTaskProvider.stream()).thenReturn(Stream.empty());
         when(routeProvider.stream()).thenReturn(Stream.of(mockRoute));
 
-        factory = new DefaultWorkflowComponentFactory(mockContext, emptyTaskProvider, routeProvider);
+        factory = new DefaultWorkflowComponentFactory(emptyTaskProvider, routeProvider);
         factory.init();
 
         // When
@@ -224,7 +224,7 @@ class DefaultWorkflowComponentFactoryTest {
         when(emptyTaskProvider.stream()).thenReturn(Stream.empty());
         when(routeProvider.stream()).thenReturn(Stream.of(mockRoute));
 
-        factory = new DefaultWorkflowComponentFactory(mockContext, emptyTaskProvider, routeProvider);
+        factory = new DefaultWorkflowComponentFactory(emptyTaskProvider, routeProvider);
         factory.init();
 
         // When
@@ -289,7 +289,7 @@ class DefaultWorkflowComponentFactoryTest {
         when(emptyTaskProvider.stream()).thenReturn(Stream.empty());
         when(emptyRouteProvider.stream()).thenReturn(Stream.empty());
 
-        factory = new DefaultWorkflowComponentFactory(mockContext, emptyTaskProvider, emptyRouteProvider);
+        factory = new DefaultWorkflowComponentFactory(emptyTaskProvider, emptyRouteProvider);
         factory.init();
 
         // When/Then

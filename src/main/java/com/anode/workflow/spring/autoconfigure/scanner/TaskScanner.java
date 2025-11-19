@@ -12,6 +12,7 @@ import org.springframework.stereotype.Component;
 import com.anode.workflow.entities.steps.InvokableTask;
 import com.anode.workflow.spring.autoconfigure.annotations.Task;
 import com.anode.workflow.spring.autoconfigure.util.BeanNameUtils;
+import com.anode.workflow.spring.autoconfigure.util.BeanNameValidator;
 
 import jakarta.annotation.PostConstruct;
 
@@ -124,6 +125,9 @@ public class TaskScanner {
         String beanName = annotation.value().isEmpty()
             ? BeanNameUtils.deriveBeanName(clazz)
             : annotation.value();
+
+        // Validate bean name using the comprehensive validator
+        BeanNameValidator.validate(beanName, clazz);
 
         // Check for duplicate bean names
         if (registry.containsKey(beanName)) {
