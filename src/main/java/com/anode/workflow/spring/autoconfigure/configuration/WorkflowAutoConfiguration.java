@@ -144,7 +144,7 @@ public class WorkflowAutoConfiguration {
             // Get the ObjectProviders for InvokableTask and InvokableRoute from the context
             ObjectProvider<InvokableTask> taskProvider = ctx.getBeanProvider(InvokableTask.class);
             ObjectProvider<InvokableRoute> routeProvider = ctx.getBeanProvider(InvokableRoute.class);
-            return (T) new DefaultWorkflowComponentFactory(ctx, taskProvider, routeProvider);
+            return (T) new DefaultWorkflowComponentFactory(taskProvider, routeProvider);
         }
         throw new IllegalArgumentException("Unknown default for " + type);
     }

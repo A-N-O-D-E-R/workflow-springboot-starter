@@ -84,7 +84,8 @@ public class FileStorageConfiguration {
         private final String basePath;
         private final String canonicalBasePath; // Cached to avoid repeated I/O
         private final ObjectMapper objectMapper;
-        private final Map<String, Long> counters = new HashMap<>();
+        private final Map<String, Long> counters = new java.util.concurrent.ConcurrentHashMap<>();
+        private final Map<Serializable, java.util.concurrent.locks.ReentrantLock> fileLocks = new java.util.concurrent.ConcurrentHashMap<>();
 
         public FileCommonService(String basePath) {
             this.basePath = basePath;
@@ -96,6 +97,14 @@ public class FileStorageConfiguration {
             } catch (IOException e) {
                 throw new IllegalStateException("Failed to resolve canonical path for: " + basePath, e);
             }
+        }
+
+        /**
+         * Get or create a lock for a specific file ID.
+         * This enables fine-grained locking per file instead of global synchronization.
+         */
+        private java.util.concurrent.locks.ReentrantLock getLockForId(Serializable id) {
+            return fileLocks.computeIfAbsent(id, k -> new java.util.concurrent.locks.ReentrantLock());
         }
 
         /**
@@ -171,33 +180,72 @@ public class FileStorageConfiguration {
         }
 
         @Override
-        public synchronized void save(Serializable id, Object object) {
-            File file = getFile(id);
-            if (!file.exists()) {
-                write(file, object);
+        public void save(Serializable id, Object object) {
+            // Validate ID early (getFile will also validate, but we need to check before locking)
+            if (id == null) {
+                throw new IllegalArgumentException("ID cannot be null");
             }
-        }
-
-        @Override
-        public synchronized void update(Serializable id, Object object) {
-            File file = getFile(id);
-            if (file.exists()) {
-                write(file, object);
-            }
-        }
-
-        @Override
-        public synchronized void saveOrUpdate(Serializable id, Object object) {
-            write(getFile(id), object);
-        }
-
-        @Override
-        public synchronized void delete(Serializable id) {
-            File file = getFile(id);
-            if (file.exists()) {
-                if (!file.delete()) {
-                    throw new RuntimeException("Failed to delete file: " + file.getAbsolutePath());
+            java.util.concurrent.locks.ReentrantLock lock = getLockForId(id);
+            lock.lock();
+            try {
+                File file = getFile(id);
+                if (!file.exists()) {
+                    write(file, object);
                 }
+            } finally {
+                lock.unlock();
+            }
+        }
+
+        @Override
+        public void update(Serializable id, Object object) {
+            if (id == null) {
+                throw new IllegalArgumentException("ID cannot be null");
+            }
+            java.util.concurrent.locks.ReentrantLock lock = getLockForId(id);
+            lock.lock();
+            try {
+                File file = getFile(id);
+                if (file.exists()) {
+                    write(file, object);
+                }
+            } finally {
+                lock.unlock();
+            }
+        }
+
+        @Override
+        public void saveOrUpdate(Serializable id, Object object) {
+            if (id == null) {
+                throw new IllegalArgumentException("ID cannot be null");
+            }
+            java.util.concurrent.locks.ReentrantLock lock = getLockForId(id);
+            lock.lock();
+            try {
+                write(getFile(id), object);
+            } finally {
+                lock.unlock();
+            }
+        }
+
+        @Override
+        public void delete(Serializable id) {
+            if (id == null) {
+                throw new IllegalArgumentException("ID cannot be null");
+            }
+            java.util.concurrent.locks.ReentrantLock lock = getLockForId(id);
+            lock.lock();
+            try {
+                File file = getFile(id);
+                if (file.exists()) {
+                    if (!file.delete()) {
+                        throw new RuntimeException("Failed to delete file: " + file.getAbsolutePath());
+                    }
+                }
+            } finally {
+                lock.unlock();
+                // Clean up the lock to prevent memory leak
+                fileLocks.remove(id);
             }
         }
 
@@ -283,11 +331,9 @@ public class FileStorageConfiguration {
         }
 
         @Override
-        public synchronized long incrCounter(String counterName) {
-            Long value = counters.getOrDefault(counterName, 0L);
-            value++;
-            counters.put(counterName, value);
-            return value;
+        public long incrCounter(String counterName) {
+            // Use ConcurrentHashMap's atomic operations for thread-safe counter increment
+            return counters.compute(counterName, (k, v) -> v == null ? 1L : v + 1L);
         }
 
         @Override

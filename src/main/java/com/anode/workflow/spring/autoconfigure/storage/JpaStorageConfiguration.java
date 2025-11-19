@@ -86,38 +86,69 @@ public class JpaStorageConfiguration {
 
         /**
          * Execute operation within a transaction with proper rollback handling.
+         *
+         * <p>This method ensures proper resource cleanup even in case of exceptions:
+         * <ul>
+         *   <li>EntityManager is always closed in finally block</li>
+         *   <li>Transaction is rolled back if active when exception occurs</li>
+         *   <li>Rollback exceptions are logged but don't mask the original exception</li>
+         * </ul>
          */
         private void executeInTransaction(java.util.function.Consumer<EntityManager> operation) {
-            EntityManager em = getEntityManager();
-            jakarta.persistence.EntityTransaction transaction = em.getTransaction();
+            EntityManager em = null;
+            jakarta.persistence.EntityTransaction transaction = null;
 
             try {
+                em = getEntityManager();
+                transaction = em.getTransaction();
                 transaction.begin();
                 operation.accept(em);
                 transaction.commit();
             } catch (RuntimeException e) {
-                if (transaction.isActive()) {
+                // Attempt to rollback if transaction is active
+                if (transaction != null && transaction.isActive()) {
                     try {
                         transaction.rollback();
                     } catch (Exception rollbackException) {
                         logger.error("Failed to rollback transaction", rollbackException);
+                        // Add rollback exception as suppressed to preserve full error context
+                        e.addSuppressed(rollbackException);
                     }
                 }
                 throw e;
             } finally {
-                em.close();
+                // Always close EntityManager, even if transaction commit/rollback failed
+                if (em != null && em.isOpen()) {
+                    try {
+                        em.close();
+                    } catch (Exception closeException) {
+                        // Log but don't throw - we don't want to mask the original exception
+                        logger.error("Failed to close EntityManager", closeException);
+                    }
+                }
             }
         }
 
         /**
          * Execute query operation with proper resource cleanup.
+         *
+         * <p>Ensures EntityManager is always closed even if query execution fails.
          */
         private <T> T executeQuery(java.util.function.Function<EntityManager, T> query) {
-            EntityManager em = getEntityManager();
+            EntityManager em = null;
             try {
+                em = getEntityManager();
                 return query.apply(em);
             } finally {
-                em.close();
+                // Always close EntityManager, even if query failed
+                if (em != null && em.isOpen()) {
+                    try {
+                        em.close();
+                    } catch (Exception closeException) {
+                        // Log but don't throw - we don't want to mask the original exception
+                        logger.error("Failed to close EntityManager", closeException);
+                    }
+                }
             }
         }
 
@@ -209,14 +240,23 @@ public class JpaStorageConfiguration {
         @Override
         public <T> T getUniqueItem(Class<T> type, String uniqueKeyName, String uniqueKeyValue) {
             return executeQuery(em -> {
-                // Use entity name from metadata and parameterized query
-                // Note: uniqueKeyName is assumed to be a valid field name from internal usage
-                String entityName = getEntityName(em, type);
-                jakarta.persistence.TypedQuery<T> query = em.createQuery(
-                    "SELECT e FROM " + entityName + " e WHERE e." + uniqueKeyName + " = :value", type);
-                query.setParameter("value", uniqueKeyValue);
-                java.util.List<T> results = query.getResultList();
-                return results.isEmpty() ? null : results.get(0);
+                // Use JPA Criteria API to avoid SQL injection risks
+                // This ensures field names are validated against the metamodel
+                try {
+                    jakarta.persistence.criteria.CriteriaBuilder cb = em.getCriteriaBuilder();
+                    jakarta.persistence.criteria.CriteriaQuery<T> cq = cb.createQuery(type);
+                    jakarta.persistence.criteria.Root<T> root = cq.from(type);
+
+                    // This will throw IllegalArgumentException if uniqueKeyName is not a valid attribute
+                    cq.select(root).where(cb.equal(root.get(uniqueKeyName), uniqueKeyValue));
+
+                    java.util.List<T> results = em.createQuery(cq).getResultList();
+                    return results.isEmpty() ? null : results.get(0);
+                } catch (IllegalArgumentException e) {
+                    throw new IllegalArgumentException(
+                        "Invalid field name '" + uniqueKeyName + "' for entity type " + type.getName() +
+                        ". The field does not exist in the entity metamodel.", e);
+                }
             });
         }
 

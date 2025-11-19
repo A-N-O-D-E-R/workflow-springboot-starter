@@ -267,10 +267,10 @@ class FileStorageTest {
         // Given
         TestEntity entity = new TestEntity("test", "value");
 
-        // When/Then
+        // When/Then - More precise error message after concurrency fix
         assertThatThrownBy(() -> fileStorage.save(null, entity))
             .isInstanceOf(IllegalArgumentException.class)
-            .hasMessageContaining("ID cannot be null or empty");
+            .hasMessageContaining("ID cannot be null");
     }
 
     @Test
