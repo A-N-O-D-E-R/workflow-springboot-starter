@@ -16,7 +16,15 @@ import java.io.IOException;
 import java.io.Serializable;
 import java.nio.file.Files;
 import java.nio.file.Paths;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.Comparator;
+import java.util.List;
+import java.util.Map;
+import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.locks.ReentrantLock;
 
 /**
  * File-based JSON storage configuration for workflow engine.
@@ -84,8 +92,8 @@ public class FileStorageConfiguration {
         private final String basePath;
         private final String canonicalBasePath; // Cached to avoid repeated I/O
         private final ObjectMapper objectMapper;
-        private final Map<String, Long> counters = new java.util.concurrent.ConcurrentHashMap<>();
-        private final Map<Serializable, java.util.concurrent.locks.ReentrantLock> fileLocks = new java.util.concurrent.ConcurrentHashMap<>();
+        private final Map<String, Long> counters = new ConcurrentHashMap<>();
+        private final Map<Serializable, ReentrantLock> fileLocks = new ConcurrentHashMap<>();
 
         public FileCommonService(String basePath) {
             this.basePath = basePath;
@@ -103,8 +111,8 @@ public class FileStorageConfiguration {
          * Get or create a lock for a specific file ID.
          * This enables fine-grained locking per file instead of global synchronization.
          */
-        private java.util.concurrent.locks.ReentrantLock getLockForId(Serializable id) {
-            return fileLocks.computeIfAbsent(id, k -> new java.util.concurrent.locks.ReentrantLock());
+        private ReentrantLock getLockForId(Serializable id) {
+            return fileLocks.computeIfAbsent(id, k -> new ReentrantLock());
         }
 
         /**
@@ -185,7 +193,7 @@ public class FileStorageConfiguration {
             if (id == null) {
                 throw new IllegalArgumentException("ID cannot be null");
             }
-            java.util.concurrent.locks.ReentrantLock lock = getLockForId(id);
+            ReentrantLock lock = getLockForId(id);
             lock.lock();
             try {
                 File file = getFile(id);
@@ -202,7 +210,7 @@ public class FileStorageConfiguration {
             if (id == null) {
                 throw new IllegalArgumentException("ID cannot be null");
             }
-            java.util.concurrent.locks.ReentrantLock lock = getLockForId(id);
+            ReentrantLock lock = getLockForId(id);
             lock.lock();
             try {
                 File file = getFile(id);
@@ -219,7 +227,7 @@ public class FileStorageConfiguration {
             if (id == null) {
                 throw new IllegalArgumentException("ID cannot be null");
             }
-            java.util.concurrent.locks.ReentrantLock lock = getLockForId(id);
+            ReentrantLock lock = getLockForId(id);
             lock.lock();
             try {
                 write(getFile(id), object);
@@ -233,7 +241,7 @@ public class FileStorageConfiguration {
             if (id == null) {
                 throw new IllegalArgumentException("ID cannot be null");
             }
-            java.util.concurrent.locks.ReentrantLock lock = getLockForId(id);
+            ReentrantLock lock = getLockForId(id);
             lock.lock();
             try {
                 File file = getFile(id);
