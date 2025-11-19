@@ -7,7 +7,11 @@ import com.anode.workflow.entities.workflows.WorkflowContext;
 import com.anode.workflow.service.WorkflowComponantFactory;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.context.ApplicationContext;
+
+import java.util.Collections;
+import java.util.stream.Stream;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -21,11 +25,20 @@ class DefaultWorkflowComponentFactoryTest {
 
     private DefaultWorkflowComponentFactory factory;
     private ApplicationContext mockContext;
+    private ObjectProvider<InvokableTask> mockTaskProvider;
+    private ObjectProvider<InvokableRoute> mockRouteProvider;
 
     @BeforeEach
     void setUp() {
         mockContext = mock(ApplicationContext.class);
-        factory = new DefaultWorkflowComponentFactory(mockContext);
+        mockTaskProvider = mock(ObjectProvider.class);
+        mockRouteProvider = mock(ObjectProvider.class);
+
+        // By default, return empty streams
+        when(mockTaskProvider.stream()).thenReturn(Stream.empty());
+        when(mockRouteProvider.stream()).thenReturn(Stream.empty());
+
+        factory = new DefaultWorkflowComponentFactory(mockContext, mockTaskProvider, mockRouteProvider);
         factory.init();
     }
 
@@ -38,14 +51,19 @@ class DefaultWorkflowComponentFactoryTest {
     void shouldReturnTaskForTaskContext() {
         // Given
         InvokableTask mockTask = mock(InvokableTask.class);
+
         WorkflowContext context = mock(WorkflowContext.class);
         when(context.getCompType()).thenReturn(StepType.TASK);
-        when(context.getCompName()).thenReturn("testTask");
-        when(mockContext.getBeansOfType(InvokableTask.class))
-            .thenReturn(java.util.Map.of("testTask", mockTask));
+        // Use the actual class name of the mock as the component name
+        when(context.getCompName()).thenReturn(mockTask.getClass().getName());
 
-        // Re-initialize factory to pick up the mock beans
-        factory = new DefaultWorkflowComponentFactory(mockContext);
+        // Re-initialize factory with mock task (use fresh providers to avoid stream reuse)
+        ObjectProvider<InvokableTask> taskProvider = mock(ObjectProvider.class);
+        ObjectProvider<InvokableRoute> emptyRouteProvider = mock(ObjectProvider.class);
+        when(taskProvider.stream()).thenReturn(Stream.of(mockTask));
+        when(emptyRouteProvider.stream()).thenReturn(Stream.empty());
+
+        factory = new DefaultWorkflowComponentFactory(mockContext, taskProvider, emptyRouteProvider);
         factory.init();
 
         // When
@@ -73,11 +91,14 @@ class DefaultWorkflowComponentFactoryTest {
         WorkflowContext context = mock(WorkflowContext.class);
         when(context.getCompType()).thenReturn(StepType.TASK);
         when(context.getCompName()).thenReturn("nonExistentTask");
-        when(mockContext.getBeansOfType(InvokableTask.class))
-            .thenReturn(java.util.Map.of());
 
-        // Re-initialize factory
-        factory = new DefaultWorkflowComponentFactory(mockContext);
+        // Re-initialize factory with empty providers (fresh providers to avoid stream reuse)
+        ObjectProvider<InvokableTask> emptyTaskProvider = mock(ObjectProvider.class);
+        ObjectProvider<InvokableRoute> emptyRouteProvider = mock(ObjectProvider.class);
+        when(emptyTaskProvider.stream()).thenReturn(Stream.empty());
+        when(emptyRouteProvider.stream()).thenReturn(Stream.empty());
+
+        factory = new DefaultWorkflowComponentFactory(mockContext, emptyTaskProvider, emptyRouteProvider);
         factory.init();
 
         // When/Then
@@ -142,14 +163,18 @@ class DefaultWorkflowComponentFactoryTest {
     void shouldReturnRouteForSRouteContext() {
         // Given
         InvokableRoute mockRoute = mock(InvokableRoute.class);
+
         WorkflowContext context = mock(WorkflowContext.class);
         when(context.getCompType()).thenReturn(StepType.S_ROUTE);
-        when(context.getCompName()).thenReturn("testRoute");
-        when(mockContext.getBeansOfType(InvokableRoute.class))
-            .thenReturn(java.util.Map.of("testRoute", mockRoute));
+        when(context.getCompName()).thenReturn(mockRoute.getClass().getName());
 
-        // Re-initialize factory to pick up the mock beans
-        factory = new DefaultWorkflowComponentFactory(mockContext);
+        // Re-initialize factory with mock route
+        ObjectProvider<InvokableTask> emptyTaskProvider = mock(ObjectProvider.class);
+        ObjectProvider<InvokableRoute> routeProvider = mock(ObjectProvider.class);
+        when(emptyTaskProvider.stream()).thenReturn(Stream.empty());
+        when(routeProvider.stream()).thenReturn(Stream.of(mockRoute));
+
+        factory = new DefaultWorkflowComponentFactory(mockContext, emptyTaskProvider, routeProvider);
         factory.init();
 
         // When
@@ -163,14 +188,18 @@ class DefaultWorkflowComponentFactoryTest {
     void shouldReturnRouteForPRouteContext() {
         // Given
         InvokableRoute mockRoute = mock(InvokableRoute.class);
+
         WorkflowContext context = mock(WorkflowContext.class);
         when(context.getCompType()).thenReturn(StepType.P_ROUTE);
-        when(context.getCompName()).thenReturn("testParallelRoute");
-        when(mockContext.getBeansOfType(InvokableRoute.class))
-            .thenReturn(java.util.Map.of("testParallelRoute", mockRoute));
+        when(context.getCompName()).thenReturn(mockRoute.getClass().getName());
 
-        // Re-initialize factory to pick up the mock beans
-        factory = new DefaultWorkflowComponentFactory(mockContext);
+        // Re-initialize factory with mock route
+        ObjectProvider<InvokableTask> emptyTaskProvider = mock(ObjectProvider.class);
+        ObjectProvider<InvokableRoute> routeProvider = mock(ObjectProvider.class);
+        when(emptyTaskProvider.stream()).thenReturn(Stream.empty());
+        when(routeProvider.stream()).thenReturn(Stream.of(mockRoute));
+
+        factory = new DefaultWorkflowComponentFactory(mockContext, emptyTaskProvider, routeProvider);
         factory.init();
 
         // When
@@ -184,14 +213,18 @@ class DefaultWorkflowComponentFactoryTest {
     void shouldReturnRouteForPRouteDynamicContext() {
         // Given
         InvokableRoute mockRoute = mock(InvokableRoute.class);
+
         WorkflowContext context = mock(WorkflowContext.class);
         when(context.getCompType()).thenReturn(StepType.P_ROUTE_DYNAMIC);
-        when(context.getCompName()).thenReturn("testDynamicRoute");
-        when(mockContext.getBeansOfType(InvokableRoute.class))
-            .thenReturn(java.util.Map.of("testDynamicRoute", mockRoute));
+        when(context.getCompName()).thenReturn(mockRoute.getClass().getName());
 
-        // Re-initialize factory to pick up the mock beans
-        factory = new DefaultWorkflowComponentFactory(mockContext);
+        // Re-initialize factory with mock route
+        ObjectProvider<InvokableTask> emptyTaskProvider = mock(ObjectProvider.class);
+        ObjectProvider<InvokableRoute> routeProvider = mock(ObjectProvider.class);
+        when(emptyTaskProvider.stream()).thenReturn(Stream.empty());
+        when(routeProvider.stream()).thenReturn(Stream.of(mockRoute));
+
+        factory = new DefaultWorkflowComponentFactory(mockContext, emptyTaskProvider, routeProvider);
         factory.init();
 
         // When
@@ -249,11 +282,14 @@ class DefaultWorkflowComponentFactoryTest {
         WorkflowContext context = mock(WorkflowContext.class);
         when(context.getCompType()).thenReturn(StepType.S_ROUTE);
         when(context.getCompName()).thenReturn("nonExistentRoute");
-        when(mockContext.getBeansOfType(InvokableRoute.class))
-            .thenReturn(java.util.Map.of());
 
-        // Re-initialize factory
-        factory = new DefaultWorkflowComponentFactory(mockContext);
+        // Re-initialize factory with empty providers (fresh providers to avoid stream reuse)
+        ObjectProvider<InvokableTask> emptyTaskProvider = mock(ObjectProvider.class);
+        ObjectProvider<InvokableRoute> emptyRouteProvider = mock(ObjectProvider.class);
+        when(emptyTaskProvider.stream()).thenReturn(Stream.empty());
+        when(emptyRouteProvider.stream()).thenReturn(Stream.empty());
+
+        factory = new DefaultWorkflowComponentFactory(mockContext, emptyTaskProvider, emptyRouteProvider);
         factory.init();
 
         // When/Then
