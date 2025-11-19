@@ -10,7 +10,14 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
 import java.io.Serializable;
-import java.util.*;
+import java.util.Collection;
+import java.util.Comparator;
+import java.util.List;
+import java.util.Map;
+import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.Collectors;
 
 /**
@@ -51,9 +58,9 @@ public class MemoryStorageConfiguration {
      * <p>Provides thread-safe locking mechanism with explicit lock release.
      */
     private static class MemoryCommonService implements CommonService {
-        private final Map<Serializable, Object> storage = new java.util.concurrent.ConcurrentHashMap<>();
-        private final Map<String, java.util.concurrent.atomic.AtomicLong> counters = new java.util.concurrent.ConcurrentHashMap<>();
-        private final Map<Serializable, java.util.concurrent.atomic.AtomicBoolean> locks = new java.util.concurrent.ConcurrentHashMap<>();
+        private final Map<Serializable, Object> storage = new ConcurrentHashMap<>();
+        private final Map<String, AtomicLong> counters = new ConcurrentHashMap<>();
+        private final Map<Serializable, AtomicBoolean> locks = new ConcurrentHashMap<>();
 
         @Override
         public void save(Serializable id, Object object) {
@@ -89,8 +96,7 @@ public class MemoryStorageConfiguration {
             }
 
             // Use atomic compareAndSet to ensure thread-safe locking
-            java.util.concurrent.atomic.AtomicBoolean lock =
-                locks.computeIfAbsent(id, k -> new java.util.concurrent.atomic.AtomicBoolean(false));
+            AtomicBoolean lock = locks.computeIfAbsent(id, k -> new AtomicBoolean(false));
 
             if (!lock.compareAndSet(false, true)) {
                 throw new IllegalStateException("Object with ID " + id + " is already locked");
@@ -108,7 +114,7 @@ public class MemoryStorageConfiguration {
          * @throws IllegalStateException if the object is not locked
          */
         public void unlock(Serializable id) {
-            java.util.concurrent.atomic.AtomicBoolean lock = locks.get(id);
+            AtomicBoolean lock = locks.get(id);
 
             if (lock == null || !lock.get()) {
                 throw new IllegalStateException("Object with ID " + id + " is not locked");
@@ -126,7 +132,7 @@ public class MemoryStorageConfiguration {
          * @return true if the object is locked, false otherwise
          */
         public boolean isLocked(Serializable id) {
-            java.util.concurrent.atomic.AtomicBoolean lock = locks.get(id);
+            AtomicBoolean lock = locks.get(id);
             return lock != null && lock.get();
         }
 
@@ -189,8 +195,7 @@ public class MemoryStorageConfiguration {
 
         @Override
         public long incrCounter(String counterName) {
-            java.util.concurrent.atomic.AtomicLong counter =
-                counters.computeIfAbsent(counterName, k -> new java.util.concurrent.atomic.AtomicLong(0));
+            AtomicLong counter = counters.computeIfAbsent(counterName, k -> new AtomicLong(0));
             return counter.incrementAndGet();
         }
 

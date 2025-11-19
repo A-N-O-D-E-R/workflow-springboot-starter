@@ -23,7 +23,9 @@ import com.anode.workflow.spring.autoconfigure.properties.WorkflowEnginesPropert
 import com.anode.workflow.spring.autoconfigure.storage.FileStorageConfiguration;
 import com.anode.workflow.spring.autoconfigure.storage.JpaStorageConfiguration;
 import com.anode.workflow.spring.autoconfigure.storage.MemoryStorageConfiguration;
-import com.anode.workflow.spring.autoconfigure.impl.*;
+import com.anode.workflow.spring.autoconfigure.impl.DefaultWorkflowComponentFactory;
+import com.anode.workflow.spring.autoconfigure.impl.NoOpsEventHandler;
+import com.anode.workflow.spring.autoconfigure.impl.NoOpsSlaQueueManager;
 
 
 @AutoConfiguration

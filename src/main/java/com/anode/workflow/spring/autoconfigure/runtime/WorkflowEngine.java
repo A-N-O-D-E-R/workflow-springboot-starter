@@ -56,8 +56,7 @@ public class WorkflowEngine {
       private static final String START_STEP = "start";
     private static final String END_STEP = "end";
 
-    private static final Logger log =
-            LoggerFactory.getLogger(WorkflowEngine.class);
+    private static final Logger logger = LoggerFactory.getLogger(WorkflowEngine.class);
 
     private final Map<String, RuntimeService> runtimeServices;
     private final TaskScanner taskScanner;
@@ -91,7 +90,7 @@ public class WorkflowEngine {
         WorkflowDefinition def = buildDefinition(beanNames);
         WorkflowVariables vars = convertVariables(variableMap);
         Entry<String, RuntimeService> rts = getDefaultRuntimeService();
-        log.info("WorkflowEngine initialized using {}", rts.getKey());
+        logger.info("WorkflowEngine initialized using {}", rts.getKey());
         return rts.getValue().startCase(caseId, def, vars, null);
     }
 
@@ -102,7 +101,7 @@ public class WorkflowEngine {
         validateCaseId(caseId);
         WorkflowVariables vars = convertVariables(variableMap);
         Entry<String, RuntimeService> rts = getDefaultRuntimeService();
-        log.info("WorkflowEngine initialized using {}", rts.getKey());
+        logger.info("WorkflowEngine initialized using {}", rts.getKey());
         return rts.getValue().startCase(caseId, definition, vars, null);
     }
 
@@ -110,14 +109,14 @@ public class WorkflowEngine {
         validateCaseId(caseId);
         WorkflowDefinition def = buildDefinition(beanNames);
         Entry<String, RuntimeService> rts = getDefaultRuntimeService();
-        log.info("WorkflowEngine initialized using {}", rts.getKey());
+        logger.info("WorkflowEngine initialized using {}", rts.getKey());
         return rts.getValue().startCase(caseId, def, variables, null);
     }
 
     public WorkflowContext startWorkflow(String caseId, WorkflowDefinition definition, WorkflowVariables variables) {
         validateCaseId(caseId);
         Entry<String, RuntimeService> rts = getDefaultRuntimeService();
-        log.info("WorkflowEngine initialized using {}", rts.getKey());
+        logger.info("WorkflowEngine initialized using {}", rts.getKey());
         return rts.getValue().startCase(caseId, definition, variables, null);
     }
 
@@ -127,7 +126,7 @@ public class WorkflowEngine {
         WorkflowDefinition def = buildDefinition(beanNames);
         WorkflowVariables vars = convertVariables(variableMap);
         RuntimeService rts = getRuntimeService(engineName);
-        log.info("WorkflowEngine initialized using {}", engineName);
+        logger.info("WorkflowEngine initialized using {}", engineName);
         return rts.startCase(caseId, def, vars, null);
     }
 
@@ -138,7 +137,7 @@ public class WorkflowEngine {
         validateCaseId(caseId);
         WorkflowVariables vars = convertVariables(variableMap);
         RuntimeService rts = getRuntimeService(engineName);
-        log.info("WorkflowEngine initialized using {}", engineName);
+        logger.info("WorkflowEngine initialized using {}", engineName);
         return rts.startCase(caseId, definition, vars, null);
     }
 
@@ -146,14 +145,14 @@ public class WorkflowEngine {
         validateCaseId(caseId);
         WorkflowDefinition def = buildDefinition(beanNames);
         RuntimeService rts = getRuntimeService(engineName);
-        log.info("WorkflowEngine initialized using {}", engineName);
+        logger.info("WorkflowEngine initialized using {}", engineName);
         return rts.startCase(caseId, def, variables, null);
     }
 
     public WorkflowContext startWorkflow(String caseId, String engineName, WorkflowDefinition definition, WorkflowVariables variables) {
         validateCaseId(caseId);
         RuntimeService rts = getRuntimeService(engineName);
-        log.info("WorkflowEngine initialized using {}", engineName);
+        logger.info("WorkflowEngine initialized using {}", engineName);
         return rts.startCase(caseId, definition, variables, null);
     }
 
