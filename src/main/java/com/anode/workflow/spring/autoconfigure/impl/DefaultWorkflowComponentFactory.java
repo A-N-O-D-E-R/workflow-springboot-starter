@@ -1,5 +1,7 @@
 package com.anode.workflow.spring.autoconfigure.impl;
 
+import org.springframework.beans.factory.ObjectProvider;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.ApplicationContext;
 import org.springframework.stereotype.Service;
 
@@ -11,27 +13,45 @@ import com.anode.workflow.service.WorkflowComponantFactory;
 
 import jakarta.annotation.PostConstruct;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 @Service
 public class DefaultWorkflowComponentFactory implements WorkflowComponantFactory {
 
     private final ApplicationContext context;
 
+    private final ObjectProvider<InvokableTask> taskProvider;
+
+    private final ObjectProvider<InvokableRoute> routeProvider;
+
     /** Caches all task and route beans by name for fast lookup */
     private Map<String, InvokableTask> taskBeans;
     private Map<String, InvokableRoute> routeBeans;
 
-    public DefaultWorkflowComponentFactory(ApplicationContext context) {
+    public DefaultWorkflowComponentFactory(
+            ApplicationContext context,
+            ObjectProvider<InvokableTask> taskProvider,
+            ObjectProvider<InvokableRoute> routeProvider
+    ) {
         this.context = context;
+        this.taskProvider = taskProvider;
+        this.routeProvider = routeProvider;
     }
 
     @PostConstruct
     public void init() {
-        // cache all beans implementing InvokableTask / InvokableRoute
-        // use defensive copying to prevent external modification
-        taskBeans = Map.copyOf(context.getBeansOfType(InvokableTask.class));
-        routeBeans = Map.copyOf(context.getBeansOfType(InvokableRoute.class));
+        // lazy: beans are not created until iterated or accessed
+        taskBeans = taskProvider.stream().collect(Collectors.toUnmodifiableMap(
+                bean -> bean.getClass().getName(),
+                bean -> bean
+        ));
+
+        routeBeans = routeProvider.stream().collect(Collectors.toUnmodifiableMap(
+                bean -> bean.getClass().getName(),
+                bean -> bean
+        ));
     }
+
 
     /**
      * Returns the workflow component based on context.

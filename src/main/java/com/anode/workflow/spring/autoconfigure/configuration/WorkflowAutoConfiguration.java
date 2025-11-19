@@ -4,6 +4,7 @@ import java.util.HashMap;
 import java.util.Map;
 
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.AutoConfigureAfter;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
@@ -12,6 +13,8 @@ import org.springframework.context.annotation.Bean;
 
 import com.anode.tool.service.CommonService;
 import com.anode.workflow.WorkflowService;
+import com.anode.workflow.entities.steps.InvokableRoute;
+import com.anode.workflow.entities.steps.InvokableTask;
 import com.anode.workflow.service.EventHandler;
 import com.anode.workflow.service.SlaQueueManager;
 import com.anode.workflow.service.WorkflowComponantFactory;
@@ -137,7 +140,12 @@ public class WorkflowAutoConfiguration {
     private <T> T createDefault(Class<T> type, ApplicationContext ctx) {
         if (type.equals(EventHandler.class)) return (T) new NoOpsEventHandler();
         if (type.equals(SlaQueueManager.class)) return (T) new NoOpsSlaQueueManager();
-        if (type.equals(WorkflowComponantFactory.class)) return (T) new DefaultWorkflowComponentFactory(ctx);
+        if (type.equals(WorkflowComponantFactory.class)) {
+            // Get the ObjectProviders for InvokableTask and InvokableRoute from the context
+            ObjectProvider<InvokableTask> taskProvider = ctx.getBeanProvider(InvokableTask.class);
+            ObjectProvider<InvokableRoute> routeProvider = ctx.getBeanProvider(InvokableRoute.class);
+            return (T) new DefaultWorkflowComponentFactory(ctx, taskProvider, routeProvider);
+        }
         throw new IllegalArgumentException("Unknown default for " + type);
     }
 }
