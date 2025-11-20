@@ -45,9 +45,12 @@ public class WorkflowComponentFactoryAutoConfiguration {
     @Bean
     public WorkflowEngine workflowEngine(
             Map<String, RuntimeService> runtimeServices,
-            TaskScanner taskScanner
+            TaskScanner taskScanner,
+            ApplicationContext applicationContext
     ) {
-        return new WorkflowEngine(runtimeServices, taskScanner);
+        WorkflowEngine engine = new WorkflowEngine(runtimeServices, taskScanner);
+        engine.setApplicationContext(applicationContext);
+        return engine;
     }
 
     /**

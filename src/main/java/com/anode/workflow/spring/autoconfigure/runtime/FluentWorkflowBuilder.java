@@ -1,148 +1,161 @@
 package com.anode.workflow.spring.autoconfigure.runtime;
 
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
+import java.util.function.Consumer;
 
+import com.anode.workflow.entities.steps.Step.StepType;
 import com.anode.workflow.entities.workflows.WorkflowContext;
 import com.anode.workflow.entities.workflows.WorkflowDefinition;
 import com.anode.workflow.entities.workflows.WorkflowVariables;
+import com.anode.workflow.spring.autoconfigure.model.WorkflowNode;
 
 public class FluentWorkflowBuilder {
 
     private final WorkflowEngine engine;
     private final String caseId;
-
-    private final List<String> taskNames = new ArrayList<>();
     private final Map<String, Object> variables = new HashMap<>();
+    private final List<WorkflowNode> nodes = new ArrayList<>();
+
+    private WorkflowNode current;
     private String engineName;
 
     public FluentWorkflowBuilder(WorkflowEngine engine, String caseId) {
-        if (engine == null) {
-            throw new IllegalArgumentException("WorkflowEngine cannot be null");
-        }
-        if (caseId == null || caseId.trim().isEmpty()) {
-            throw new IllegalArgumentException("Case ID cannot be null or empty");
-        }
+        if (engine == null) throw new IllegalArgumentException("WorkflowEngine cannot be null");
+        if (caseId == null || caseId.isEmpty()) throw new IllegalArgumentException("Case ID cannot be empty");
+
         this.engine = engine;
         this.caseId = caseId;
     }
 
-    /**
-     * Select a specific RuntimeService by name (optional).
-     */
+    /** Select engine */
     public FluentWorkflowBuilder engine(String engineName) {
         this.engineName = engineName;
         return this;
     }
 
-    /**
-     * Add a task to the workflow by taskName (from TaskScanner).
-     *
-     * @param taskName the task name to add (cannot be null or empty)
-     * @return this builder for method chaining
-     * @throws IllegalArgumentException if taskName is null or empty
-     */
-    public FluentWorkflowBuilder task(String taskName) {
-        if (taskName == null || taskName.trim().isEmpty()) {
-            throw new IllegalArgumentException("Task name cannot be null or empty");
-        }
-        taskNames.add(taskName);
+    // ---------------------------------------------------------------------
+    // TASK
+    // ---------------------------------------------------------------------
+    public FluentWorkflowBuilder task(String component) {
+        WorkflowNode node = new WorkflowNode(current==null?WorkflowEngine.START_STEP:component);
+        node.setComponent(component);
+        node.setNext(WorkflowEngine.END_STEP);
+        link(node);
+        nodes.add(node);
+        current = node;
         return this;
     }
 
-    /**
-     * Add multiple tasks.
-     *
-     * @param names list of task names to add (cannot be null)
-     * @return this builder for method chaining
-     * @throws IllegalArgumentException if names is null
-     */
-    public FluentWorkflowBuilder tasks(List<String> names) {
-        if (names == null) {
-            throw new IllegalArgumentException("Task names list cannot be null");
-        }
-        // Validate each task name in the list
-        for (String name : names) {
-            if (name == null || name.trim().isEmpty()) {
-                throw new IllegalArgumentException("Task names list cannot contain null or empty entries");
-            }
-        }
-        taskNames.addAll(names);
+    // ---------------------------------------------------------------------
+    // ROUTE
+    // ---------------------------------------------------------------------
+    public FluentWorkflowBuilder route(String component, Consumer<RouteBuilder> consumer) {
+        WorkflowNode route = new WorkflowNode(component);
+        route.setComponent(component);
+        route.setType(StepType.S_ROUTE);
+        route.setBranches(new ArrayList<>());
+
+        link(route);
+        nodes.add(route);
+
+        RouteBuilder rb = new RouteBuilder(this, route);
+        consumer.accept(rb);
+
+        // Continue after last join of route
+        current = rb.getAfterNode();
         return this;
     }
 
-    /**
-     * Add a workflow variable.
-     *
-     * @param key the variable key (cannot be null or empty)
-     * @param value the variable value
-     * @return this builder for method chaining
-     * @throws IllegalArgumentException if key is null or empty
-     */
+    public FluentWorkflowBuilder parrallelRoute(String component, Consumer<RouteBuilder> consumer) {
+        WorkflowNode route = new WorkflowNode(component);
+        route.setComponent(component);
+        route.setType(StepType.P_ROUTE);
+        route.setBranches(new ArrayList<>());
+
+        link(route);
+        nodes.add(route);
+
+        RouteBuilder rb = new RouteBuilder(this, route);
+        consumer.accept(rb);
+
+        // Continue after last join of route
+        current = rb.getAfterNode();
+        return this;
+    }
+
+    // ---------------------------------------------------------------------
+    // JOIN
+    // ---------------------------------------------------------------------
+    public FluentWorkflowBuilder join(String name) {
+        WorkflowNode join = new WorkflowNode(name);
+        join.setType(StepType.P_JOIN);
+        join.setNext(WorkflowEngine.END_STEP);
+
+        link(join);
+        nodes.add(join);
+        current = join;
+        return this;
+    }
+
+    // ---------------------------------------------------------------------
+    // Variables
+    // ---------------------------------------------------------------------
+
     public FluentWorkflowBuilder variable(String key, Object value) {
-        if (key == null || key.trim().isEmpty()) {
-            throw new IllegalArgumentException("Variable key cannot be null or empty");
-        }
         variables.put(key, value);
         return this;
     }
 
-    /**
-     * Add multiple variables.
-     *
-     * @param vars map of variables to add (cannot be null)
-     * @return this builder for method chaining
-     * @throws IllegalArgumentException if vars is null or contains null/empty keys
-     */
     public FluentWorkflowBuilder variables(Map<String, Object> vars) {
-        if (vars == null) {
-            throw new IllegalArgumentException("Variables map cannot be null");
-        }
-        // Validate all keys
-        for (String key : vars.keySet()) {
-            if (key == null || key.trim().isEmpty()) {
-                throw new IllegalArgumentException("Variables map cannot contain null or empty keys");
-            }
-        }
         variables.putAll(vars);
         return this;
     }
 
-    /**
-     * Build the workflow definition without starting.
-     */
+    // ---------------------------------------------------------------------
+    // Build Definition
+    // ---------------------------------------------------------------------
     public WorkflowDefinition buildDefinition() {
-        return engine.buildDefinition(taskNames);
+        return engine.buildDefinitionFromNodes(nodes);
     }
 
-    /**
-     * Build WorkflowVariables object without starting.
-     */
     public WorkflowVariables buildVariables() {
         WorkflowVariables vars = new WorkflowVariables();
-        variables.forEach((k, v) -> vars.setValue(k, com.anode.workflow.entities.workflows.WorkflowVariable.WorkflowVariableType.OBJECT, v));
+        variables.forEach((k, v) ->
+                vars.setValue(k,
+                        com.anode.workflow.entities.workflows.WorkflowVariable.WorkflowVariableType.OBJECT,
+                        v));
         return vars;
     }
 
-    /**
-     * Start workflow using default RuntimeService.
-     */
+    // ---------------------------------------------------------------------
+    // Start workflow
+    // ---------------------------------------------------------------------
+
     public WorkflowContext start() {
-        if (engineName != null) {
-            return engine.startWorkflow(caseId, engineName, taskNames, variables);
-        }
-        return engine.startWorkflow(caseId, taskNames, variables);
+        WorkflowDefinition def = buildDefinition();
+        WorkflowVariables vars = buildVariables();
+
+        if (engineName != null)
+            return engine.startWorkflow(caseId, engineName, def, vars);
+
+        return engine.startWorkflow(caseId, def, vars);
     }
 
-    /**
-     * Start workflow using pre-built WorkflowDefinition and WorkflowVariables.
-     */
     public WorkflowContext start(WorkflowDefinition def, WorkflowVariables vars) {
-        if (engineName != null) {
+        if (engineName != null)
             return engine.startWorkflow(caseId, engineName, def, vars);
-        }
+
         return engine.startWorkflow(caseId, def, vars);
+    }
+
+    // ---------------------------------------------------------------------
+    // Helpers
+    // ---------------------------------------------------------------------
+    private void link(WorkflowNode newNode) {
+        if (current != null) current.setNext(newNode.getName());
+    }
+
+    List<WorkflowNode> getNodes() {
+        return nodes;
     }
 }
