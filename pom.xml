@@ -35,6 +35,20 @@
         </dependencies>
     </dependencyManagement>
 
+    <distributionManagement>
+        <repository>
+            <id>b2-releases</id>
+            <name>B2 Releases Repository</name>
+            <url>b2://A-N-O-D-E-R/maven-releases</url>
+        </repository>
+
+        <snapshotRepository>
+            <id>b2-snapshots</id>
+            <name>B2 Snapshots Repository</name>
+            <url>b2://A-N-O-D-E-R/maven-snapshots</url>
+        </snapshotRepository>
+    </distributionManagement>
+
     <dependencies>
         <!-- Spring Boot Starter -->
         <dependency>
@@ -120,13 +134,13 @@
                 <version>3.0.0-M9</version>
             </plugin>
         </plugins>
-    </build>
 
-    <!-- Optional: Add repository for local workflow dependency if not in Maven Central -->
-    <repositories>
-        <repository>
-            <id>local-maven-repo</id>
-            <url>file://${user.home}/.m2/repository</url>
-        </repository>
-    </repositories>
+        <extensions>
+            <extension>
+                <groupId>com.anode.maven.wagon</groupId>
+                <artifactId>wagon-b2</artifactId>
+                <version>1.0.0</version>
+            </extension>
+        </extensions>
+    </build>
 </project>
