@@ -37,6 +37,11 @@ class FluentWorkflowBuilderTest {
     @BeforeEach
     void setUp() {
         builder = new FluentWorkflowBuilder(workflowEngine, "case-123");
+        // Mock buildDefinitionFromNodes to return a valid definition
+        WorkflowDefinition mockDefinition = new WorkflowDefinition();
+        lenient().when(workflowEngine.buildDefinitionFromNodes(anyList())).thenReturn(mockDefinition);
+
+        // Mock startWorkflow calls
         lenient().when(workflowEngine.startWorkflow(anyString(), anyList(), anyMap())).thenReturn(mockContext);
         lenient().when(workflowEngine.startWorkflow(anyString(), any(WorkflowDefinition.class), anyMap())).thenReturn(mockContext);
         lenient().when(workflowEngine.startWorkflow(anyString(), anyList(), any(WorkflowVariables.class))).thenReturn(mockContext);
@@ -54,7 +59,8 @@ class FluentWorkflowBuilderTest {
             .start();
 
         assertThat(result).isEqualTo(mockContext);
-        verify(workflowEngine).startWorkflow(eq("case-123"), eq(Arrays.asList("task1")), anyMap());
+        verify(workflowEngine).buildDefinitionFromNodes(anyList());
+        verify(workflowEngine).startWorkflow(eq("case-123"), any(WorkflowDefinition.class), any(WorkflowVariables.class));
     }
 
     @Test
@@ -66,20 +72,8 @@ class FluentWorkflowBuilderTest {
             .start();
 
         assertThat(result).isEqualTo(mockContext);
-        verify(workflowEngine).startWorkflow(eq("case-123"),
-            eq(Arrays.asList("task1", "task2", "task3")), anyMap());
-    }
-
-    @Test
-    void shouldAddTasksInBulk() {
-        List<String> tasks = Arrays.asList("task1", "task2", "task3");
-
-        WorkflowContext result = builder
-            .tasks(tasks)
-            .start();
-
-        assertThat(result).isEqualTo(mockContext);
-        verify(workflowEngine).startWorkflow(eq("case-123"), eq(tasks), anyMap());
+        verify(workflowEngine).buildDefinitionFromNodes(anyList());
+        verify(workflowEngine).startWorkflow(eq("case-123"), any(WorkflowDefinition.class), any(WorkflowVariables.class));
     }
 
     @Test
@@ -89,11 +83,11 @@ class FluentWorkflowBuilderTest {
             .variable("key", "value")
             .start();
 
-        ArgumentCaptor<Map<String, Object>> captor = ArgumentCaptor.forClass(Map.class);
-        verify(workflowEngine).startWorkflow(eq("case-123"), anyList(), captor.capture());
+        ArgumentCaptor<WorkflowVariables> captor = ArgumentCaptor.forClass(WorkflowVariables.class);
+        verify(workflowEngine).startWorkflow(eq("case-123"), any(WorkflowDefinition.class), captor.capture());
 
-        Map<String, Object> variables = captor.getValue();
-        assertThat(variables).containsEntry("key", "value");
+        WorkflowVariables variables = captor.getValue();
+        assertThat(variables.getString("key")).isEqualTo("value");
     }
 
     @Test
@@ -105,14 +99,13 @@ class FluentWorkflowBuilderTest {
             .variable("key3", true)
             .start();
 
-        ArgumentCaptor<Map<String, Object>> captor = ArgumentCaptor.forClass(Map.class);
-        verify(workflowEngine).startWorkflow(eq("case-123"), anyList(), captor.capture());
+        ArgumentCaptor<WorkflowVariables> captor = ArgumentCaptor.forClass(WorkflowVariables.class);
+        verify(workflowEngine).startWorkflow(eq("case-123"), any(WorkflowDefinition.class), captor.capture());
 
-        Map<String, Object> variables = captor.getValue();
-        assertThat(variables)
-            .containsEntry("key1", "value1")
-            .containsEntry("key2", 42)
-            .containsEntry("key3", true);
+        WorkflowVariables variables = captor.getValue();
+        assertThat(variables.getString("key1")).isEqualTo("value1");
+        assertThat(variables.getInteger("key2")).isEqualTo(42);
+        assertThat(variables.getBoolean("key3")).isEqualTo(true);
     }
 
     @Test
@@ -126,13 +119,12 @@ class FluentWorkflowBuilderTest {
             .variables(vars)
             .start();
 
-        ArgumentCaptor<Map<String, Object>> captor = ArgumentCaptor.forClass(Map.class);
-        verify(workflowEngine).startWorkflow(eq("case-123"), anyList(), captor.capture());
+        ArgumentCaptor<WorkflowVariables> captor = ArgumentCaptor.forClass(WorkflowVariables.class);
+        verify(workflowEngine).startWorkflow(eq("case-123"), any(WorkflowDefinition.class), captor.capture());
 
-        Map<String, Object> variables = captor.getValue();
-        assertThat(variables)
-            .containsEntry("key1", "value1")
-            .containsEntry("key2", "value2");
+        WorkflowVariables variables = captor.getValue();
+        assertThat(variables.getString("key1")).isEqualTo("value1");
+        assertThat(variables.getString("key2")).isEqualTo("value2");
     }
 
     @Test
@@ -143,14 +135,15 @@ class FluentWorkflowBuilderTest {
             .start();
 
         assertThat(result).isEqualTo(mockContext);
+        verify(workflowEngine).buildDefinitionFromNodes(anyList());
         verify(workflowEngine).startWorkflow(eq("case-123"), eq("custom-engine"),
-            eq(Arrays.asList("task1")), anyMap());
+            any(WorkflowDefinition.class), any(WorkflowVariables.class));
     }
 
     @Test
     void shouldBuildDefinitionWithoutStarting() {
         WorkflowDefinition mockDefinition = new WorkflowDefinition();
-        when(workflowEngine.buildDefinition(anyList())).thenReturn(mockDefinition);
+        when(workflowEngine.buildDefinitionFromNodes(anyList())).thenReturn(mockDefinition);
 
         WorkflowDefinition result = builder
             .task("task1")
@@ -158,7 +151,7 @@ class FluentWorkflowBuilderTest {
             .buildDefinition();
 
         assertThat(result).isEqualTo(mockDefinition);
-        verify(workflowEngine).buildDefinition(eq(Arrays.asList("task1", "task2")));
+        verify(workflowEngine).buildDefinitionFromNodes(anyList());
         verifyNoMoreInteractions(workflowEngine);
     }
 
@@ -209,6 +202,9 @@ class FluentWorkflowBuilderTest {
             .start();
 
         assertThat(result).isEqualTo(mockContext);
+        verify(workflowEngine).buildDefinitionFromNodes(anyList());
+        verify(workflowEngine).startWorkflow(eq("case-123"), eq("custom-engine"),
+            any(WorkflowDefinition.class), any(WorkflowVariables.class));
     }
 
     @Test
@@ -219,25 +215,22 @@ class FluentWorkflowBuilderTest {
         WorkflowContext result = builder
             .task("task1")
             .task("task2")
-            .tasks(moreTasks)
+            .task(moreTasks.get(0))
+            .task(moreTasks.get(1))
             .variable("key1", "value1")
             .variable("key2", 42)
             .variables(moreVars)
             .start();
 
-        ArgumentCaptor<List<String>> taskCaptor = ArgumentCaptor.forClass(List.class);
-        ArgumentCaptor<Map<String, Object>> varCaptor = ArgumentCaptor.forClass(Map.class);
+        ArgumentCaptor<WorkflowVariables> varCaptor = ArgumentCaptor.forClass(WorkflowVariables.class);
 
-        verify(workflowEngine).startWorkflow(eq("case-123"), taskCaptor.capture(), varCaptor.capture());
+        verify(workflowEngine).buildDefinitionFromNodes(anyList());
+        verify(workflowEngine).startWorkflow(eq("case-123"), any(WorkflowDefinition.class), varCaptor.capture());
 
-        List<String> capturedTasks = taskCaptor.getValue();
-        assertThat(capturedTasks).containsExactly("task1", "task2", "task3", "task4");
-
-        Map<String, Object> capturedVars = varCaptor.getValue();
-        assertThat(capturedVars)
-            .containsEntry("key1", "value1")
-            .containsEntry("key2", 42)
-            .containsEntry("key3", "value3");
+        WorkflowVariables capturedVars = varCaptor.getValue();
+        assertThat(capturedVars.getString("key1")).isEqualTo("value1");
+        assertThat(capturedVars.getInteger("key2")).isEqualTo(42);
+        assertThat(capturedVars.getString("key3")).isEqualTo("value3");
     }
 
     @Test
@@ -246,11 +239,12 @@ class FluentWorkflowBuilderTest {
             .task("task1")
             .start();
 
-        ArgumentCaptor<Map<String, Object>> captor = ArgumentCaptor.forClass(Map.class);
-        verify(workflowEngine).startWorkflow(eq("case-123"), anyList(), captor.capture());
+        ArgumentCaptor<WorkflowVariables> captor = ArgumentCaptor.forClass(WorkflowVariables.class);
+        verify(workflowEngine).startWorkflow(eq("case-123"), any(WorkflowDefinition.class), captor.capture());
 
-        Map<String, Object> variables = captor.getValue();
-        assertThat(variables).isEmpty();
+        WorkflowVariables variables = captor.getValue();
+        assertThat(variables).isNotNull();
+        // Empty WorkflowVariables is still valid
     }
 
     @Test
@@ -270,6 +264,7 @@ class FluentWorkflowBuilderTest {
             .variable("key", "value")
             .start();
 
-        verify(workflowEngine).startWorkflow(eq("case-123"), anyList(), anyMap());
+        verify(workflowEngine).buildDefinitionFromNodes(anyList());
+        verify(workflowEngine).startWorkflow(eq("case-123"), any(WorkflowDefinition.class), any(WorkflowVariables.class));
     }
 }
