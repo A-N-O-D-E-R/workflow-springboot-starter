@@ -27,7 +27,27 @@ import com.anode.workflow.spring.autoconfigure.impl.DefaultWorkflowComponentFact
 import com.anode.workflow.spring.autoconfigure.impl.NoOpsEventHandler;
 import com.anode.workflow.spring.autoconfigure.impl.NoOpsSlaQueueManager;
 
-
+/**
+ * Spring Boot auto-configuration for the workflow engine.
+ *
+ * <p>This configuration class automatically sets up all necessary beans for the workflow
+ * engine during application startup. It configures runtime services, storage, event handlers,
+ * and SLA queue managers based on the properties defined in {@link WorkflowEnginesProperties}.
+ *
+ * <p><b>Configuration properties:</b>
+ * Use {@code workflow.engines[].name}, {@code workflow.engines[].storage.type}, etc.
+ * to configure different runtime services with different storage backends.
+ *
+ * <p><b>Provides beans:</b>
+ * <ul>
+ *   <li>{@link WorkflowService} - the main workflow service singleton</li>
+ *   <li>{@code Map<String, RuntimeService>} - configured runtime services by name</li>
+ * </ul>
+ *
+ * @see WorkflowEnginesProperties
+ * @see WorkflowService
+ * @see RuntimeService
+ */
 @AutoConfiguration
 @EnableConfigurationProperties(WorkflowEnginesProperties.class)
 @AutoConfigureAfter({

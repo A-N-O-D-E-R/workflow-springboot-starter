@@ -11,11 +11,28 @@ import org.springframework.core.type.classreading.SimpleMetadataReaderFactory;
 import com.anode.workflow.service.WorkflowComponantFactory;
 import com.anode.workflow.spring.autoconfigure.util.BeanNameUtils;
 
+/**
+ * Registers workflow component factory beans discovered via classpath scanning.
+ *
+ * <p>This registrar automatically discovers classes annotated with
+ * {@code @WorkflowComponentFactory} and registers them as Spring beans.
+ * It scans the classpath during application startup and registers all
+ * component factories for injection into other Spring components.
+ *
+ * @see com.anode.workflow.spring.autoconfigure.annotations.WorkflowComponentFactory
+ */
 public class WorkflowComponentFactoryRegistrar implements ImportBeanDefinitionRegistrar {
 
     private static final String DEFAULT_BASE_PACKAGE = "com.anode";
     private static final String SCAN_PACKAGE_PROPERTY = "workflow.component-factory.scan-base-package";
 
+    /**
+     * Registers bean definitions for all discovered workflow component factory classes.
+     *
+     * @param metadata the annotation metadata
+     * @param registry the bean definition registry
+     * @throws RuntimeException if classpath scanning or bean registration fails
+     */
     @Override
     public void registerBeanDefinitions(AnnotationMetadata metadata, BeanDefinitionRegistry registry) {
 

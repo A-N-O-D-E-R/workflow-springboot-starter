@@ -13,17 +13,38 @@ import jakarta.annotation.PostConstruct;
 import java.util.Map;
 import java.util.stream.Collectors;
 
+/**
+ * Default implementation of workflow component factory.
+ *
+ * <p>This factory looks up workflow components (tasks and routes) from the Spring
+ * context using ObjectProvider. Components are cached after initialization for
+ * fast lookup during workflow execution.
+ *
+ * <p>Supported component types:
+ * <ul>
+ *   <li><b>TASK:</b> Returns InvokableTask implementations</li>
+ *   <li><b>S_ROUTE/P_ROUTE:</b> Returns InvokableRoute implementations</li>
+ * </ul>
+ *
+ * @see WorkflowComponantFactory
+ * @see InvokableTask
+ * @see InvokableRoute
+ */
 @Service
 public class DefaultWorkflowComponentFactory implements WorkflowComponantFactory {
 
     private final ObjectProvider<InvokableTask> taskProvider;
-
     private final ObjectProvider<InvokableRoute> routeProvider;
 
-    /** Caches all task and route beans by name for fast lookup */
     private Map<String, InvokableTask> taskBeans;
     private Map<String, InvokableRoute> routeBeans;
 
+    /**
+     * Constructs the factory with task and route providers.
+     *
+     * @param taskProvider provider for InvokableTask beans
+     * @param routeProvider provider for InvokableRoute beans
+     */
     public DefaultWorkflowComponentFactory(
             ObjectProvider<InvokableTask> taskProvider,
             ObjectProvider<InvokableRoute> routeProvider
@@ -32,9 +53,12 @@ public class DefaultWorkflowComponentFactory implements WorkflowComponantFactory
         this.routeProvider = routeProvider;
     }
 
+    /**
+     * Initializes the component caches from the providers.
+     * Called automatically after bean construction.
+     */
     @PostConstruct
     public void init() {
-        // lazy: beans are not created until iterated or accessed
         taskBeans = taskProvider.stream().collect(Collectors.toUnmodifiableMap(
                 bean -> bean.getClass().getName(),
                 bean -> bean

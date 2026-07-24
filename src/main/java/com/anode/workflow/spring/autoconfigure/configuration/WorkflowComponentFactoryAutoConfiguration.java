@@ -18,6 +18,25 @@ import com.anode.workflow.spring.autoconfigure.storage.FileStorageConfiguration;
 import com.anode.workflow.spring.autoconfigure.storage.JpaStorageConfiguration;
 import com.anode.workflow.spring.autoconfigure.storage.MemoryStorageConfiguration;
 
+/**
+ * Spring configuration for the workflow component factory and task scanning.
+ *
+ * <p>This configuration enables automatic discovery of workflow components (tasks, routes, etc.)
+ * through classpath scanning. It sets up the task scanner, workflow engine, and fluent builder factory.
+ *
+ * <p><b>Enabled by:</b> Set {@code workflow.factory.enabled=true} (default: true) to enable this configuration.
+ *
+ * <p><b>Provides beans:</b>
+ * <ul>
+ *   <li>{@link TaskScanner} - discovers and registers @Task annotated classes</li>
+ *   <li>{@link WorkflowEngine} - provides workflow execution operations</li>
+ *   <li>{@link FluentWorkflowBuilderFactory} - factory for creating workflow builders</li>
+ * </ul>
+ *
+ * @see TaskScanner
+ * @see WorkflowEngine
+ * @see FluentWorkflowBuilderFactory
+ */
 @Configuration
 @Import(WorkflowComponentFactoryRegistrar.class)
 @ConditionalOnProperty(
@@ -33,14 +52,26 @@ import com.anode.workflow.spring.autoconfigure.storage.MemoryStorageConfiguratio
 })
 public class WorkflowComponentFactoryAutoConfiguration {
 
+    /**
+     * Creates a task scanner for discovering @Task annotated classes.
+     *
+     * @param ctx the application context
+     * @return the configured task scanner
+     */
     @Bean
     public TaskScanner taskScanner(ApplicationContext ctx) {
         return new TaskScanner(ctx);
     }
-    
+
     /**
-     * WorkflowEngine bean that manages workflow execution.
-     * Automatically uses all RuntimeService beans in the context.
+     * Creates the workflow engine bean.
+     *
+     * <p>The engine manages workflow execution and uses all available runtime services.
+     *
+     * @param runtimeServices map of configured runtime services
+     * @param taskScanner the task scanner
+     * @param applicationContext the Spring application context
+     * @return the configured workflow engine
      */
     @Bean
     public WorkflowEngine workflowEngine(
@@ -54,7 +85,10 @@ public class WorkflowComponentFactoryAutoConfiguration {
     }
 
     /**
-     * Provides a fluent workflow builder for building and starting workflows.
+     * Creates the fluent workflow builder factory bean.
+     *
+     * @param workflowEngine the workflow engine
+     * @return the configured builder factory
      */
     @Bean
     public FluentWorkflowBuilderFactory fluentWorkflowBuilderFactory(

@@ -11,8 +11,25 @@ import org.springframework.core.type.classreading.SimpleMetadataReaderFactory;
 import com.anode.workflow.service.SlaQueueManager;
 import com.anode.workflow.spring.autoconfigure.util.BeanNameUtils;
 
+/**
+ * Registers SLA queue manager beans discovered via classpath scanning.
+ *
+ * <p>This registrar automatically discovers classes annotated with
+ * {@code @SlaQueueManagerComponent} and registers them as Spring beans.
+ * SLA queue managers handle priority-based task queuing and ensure workflow
+ * tasks are processed within specified time constraints.
+ *
+ * @see com.anode.workflow.spring.autoconfigure.annotations.SlaQueueManagerComponent
+ */
 public class SlaQueueManagerRegistrar implements ImportBeanDefinitionRegistrar {
 
+    /**
+     * Registers bean definitions for all discovered SLA queue manager classes.
+     *
+     * @param metadata the annotation metadata
+     * @param registry the bean definition registry
+     * @throws RuntimeException if classpath scanning or bean registration fails
+     */
     @Override
     public void registerBeanDefinitions(AnnotationMetadata metadata, BeanDefinitionRegistry registry) {
 

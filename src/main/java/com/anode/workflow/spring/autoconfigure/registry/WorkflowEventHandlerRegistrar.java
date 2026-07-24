@@ -11,8 +11,25 @@ import org.springframework.core.type.classreading.SimpleMetadataReaderFactory;
 import com.anode.workflow.service.EventHandler;
 import com.anode.workflow.spring.autoconfigure.util.BeanNameUtils;
 
+/**
+ * Registers workflow event handler beans discovered via classpath scanning.
+ *
+ * <p>This registrar automatically discovers classes annotated with
+ * {@code @WorkflowEventHandler} and registers them as Spring beans.
+ * Event handlers listen to workflow lifecycle events and can perform custom actions
+ * in response to workflow state changes, task execution, and other workflow events.
+ *
+ * @see com.anode.workflow.spring.autoconfigure.annotations.WorkflowEventHandler
+ */
 public class WorkflowEventHandlerRegistrar implements ImportBeanDefinitionRegistrar {
 
+    /**
+     * Registers bean definitions for all discovered workflow event handler classes.
+     *
+     * @param metadata the annotation metadata
+     * @param registry the bean definition registry
+     * @throws RuntimeException if classpath scanning or bean registration fails
+     */
     @Override
     public void registerBeanDefinitions(AnnotationMetadata metadata, BeanDefinitionRegistry registry) {
 

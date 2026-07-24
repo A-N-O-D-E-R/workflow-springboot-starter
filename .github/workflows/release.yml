@@ -5,80 +5,39 @@ on:
     tags:
       - 'v*'
 
-permissions:
-  contents: write
-
 jobs:
   release:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
     steps:
       - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
 
       - name: Set up JDK 25
         uses: actions/setup-java@v4
         with:
           java-version: '25'
           distribution: 'temurin'
-          cache: maven
-
-      - name: Configure Git
-        run: |
-          git config user.email "action@github.com"
-          git config user.name "GitHub Action"
+          server-id: central
+          server-username: MAVEN_USERNAME
+          server-password: MAVEN_PASSWORD
+          gpg-private-key: ${{ secrets.GPG_PRIVATE_KEY }}
+          gpg-passphrase: MAVEN_GPG_PASSPHRASE
 
       - name: Strip v prefix from tag
         id: version
         run: echo "VERSION=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
 
-      - name: Import GPG key
-        run: |
-          mkdir -p ~/.gnupg
-          echo "${{ secrets.GPG_PRIVATE_KEY }}" | base64 -d > ~/.gnupg/private.key
-          gpg --import ~/.gnupg/private.key
-          rm ~/.gnupg/private.key
-
-      - name: Create Maven settings.xml
-        run: |
-          mkdir -p ~/.m2
-          cat > ~/.m2/settings.xml << 'EOF'
-          <?xml version="1.0" encoding="UTF-8"?>
-          <settings xmlns="http://maven.apache.org/SETTINGS/1.0.0"
-                    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-                    xsi:schemaLocation="http://maven.apache.org/SETTINGS/1.0.0 http://maven.apache.org/xsd/settings-1.0.0.xsd">
-            <servers>
-              <server>
-                <id>ossrh</id>
-                <username>${env.MAVEN_USERNAME}</username>
-                <password>${env.MAVEN_PASSWORD}</password>
-              </server>
-            </servers>
-            <profiles>
-              <profile>
-                <id>ossrh</id>
-                <activation>
-                  <activeByDefault>true</activeByDefault>
-                </activation>
-                <properties>
-                  <gpg.executable>gpg</gpg.executable>
-                  <gpg.passphrase>${env.GPG_PASSPHRASE}</gpg.passphrase>
-                </properties>
-              </profile>
-            </profiles>
-          </settings>
-          EOF
-
       - name: Set release version
         run: mvn versions:set -DnewVersion=${{ steps.version.outputs.VERSION }} -DgenerateBackupPoms=false
 
       - name: Build and deploy to Maven Central
+        run: mvn --batch-mode deploy -P central -DskipTests
         env:
           MAVEN_USERNAME: ${{ secrets.CENTRAL_USERNAME }}
           MAVEN_PASSWORD: ${{ secrets.CENTRAL_PASSWORD }}
-          GPG_PASSPHRASE: ${{ secrets.GPG_PASSPHRASE }}
-        run: |
-          mvn --batch-mode deploy -P ossrh -DskipTests
+          MAVEN_GPG_PASSPHRASE: ${{ secrets.GPG_PASSPHRASE }}
 
       - name: Upload release artifacts to GitHub
         uses: softprops/action-gh-release@v2
