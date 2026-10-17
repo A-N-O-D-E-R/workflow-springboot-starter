@@ -1,6 +1,6 @@
 package com.anode.workflow.spring.autoconfigure.properties;
 
-import com.anode.workflow.spring.autoconfigure.properties.JpaProperties.StorageType;
+import com.anode.workflow.spring.autoconfigure.properties.StorageProperties.StorageType;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.boot.test.context.runner.ApplicationContextRunner;
@@ -51,7 +51,7 @@ class WorkflowEnginesPropertiesTest {
         contextRunner
                 .withPropertyValues(
                         "workflow.engines[0].name=engine1",
-                        "workflow.engines[0].storage.type=JPA",
+                        "workflow.engines[0].storage.type=JDBC",
                         "workflow.engines[0].sla.enabled=true",
                         "workflow.engines[1].name=engine2",
                         "workflow.engines[1].storage.type=MEMORY",
@@ -64,7 +64,7 @@ class WorkflowEnginesPropertiesTest {
 
                     WorkflowEnginesProperties.EngineConfig engine1 = properties.getEngines().get(0);
                     assertThat(engine1.getName()).isEqualTo("engine1");
-                    assertThat(engine1.getStorage().getType()).isEqualTo(StorageType.JPA);
+                    assertThat(engine1.getStorage().getType()).isEqualTo(StorageType.JDBC);
                     assertThat(engine1.getSla().isEnabled()).isTrue();
 
                     WorkflowEnginesProperties.EngineConfig engine2 = properties.getEngines().get(1);
@@ -81,9 +81,8 @@ class WorkflowEnginesPropertiesTest {
                         "workflow.engines[0].name=fullEngine",
                         "workflow.engines[0].storage.type=FILE",
                         "workflow.engines[0].storage.file-path=/custom/workflow",
-                        "workflow.engines[0].jpa.enabled=false",
-                        "workflow.engines[0].jpa.entity-manager-factory-ref=customEMF",
-                        "workflow.engines[0].jpa.auto-create-schema=true",
+                        "workflow.engines[0].storage.jdbc.document-table=wf_docs",
+                        "workflow.engines[0].storage.jdbc.initialize-schema=true",
                         "workflow.engines[0].sla.enabled=true",
                         "workflow.engines[0].sla.queue-manager-bean=customSlaManager"
                 )
@@ -96,9 +95,8 @@ class WorkflowEnginesPropertiesTest {
                     assertThat(engine.getName()).isEqualTo("fullEngine");
                     assertThat(engine.getStorage().getType()).isEqualTo(StorageType.FILE);
                     assertThat(engine.getStorage().getFilePath()).isEqualTo("/custom/workflow");
-                    assertThat(engine.getJpa().isEnabled()).isFalse();
-                    assertThat(engine.getJpa().getEntityManagerFactoryRef()).isEqualTo("customEMF");
-                    assertThat(engine.getJpa().isAutoCreateSchema()).isTrue();
+                    assertThat(engine.getStorage().getJdbc().getDocumentTable()).isEqualTo("wf_docs");
+                    assertThat(engine.getStorage().getJdbc().isInitializeSchema()).isTrue();
                     assertThat(engine.getSla().isEnabled()).isTrue();
                     assertThat(engine.getSla().getQueueManagerBean()).isEqualTo("customSlaManager");
                 });
@@ -116,9 +114,9 @@ class WorkflowEnginesPropertiesTest {
 
                     assertThat(engine.getName()).isEqualTo("defaultEngine");
                     assertThat(engine.getStorage()).isNotNull();
-                    assertThat(engine.getStorage().getType()).isEqualTo(StorageType.JPA);
-                    assertThat(engine.getJpa()).isNotNull();
-                    assertThat(engine.getJpa().isEnabled()).isTrue();
+                    assertThat(engine.getStorage().getType()).isEqualTo(StorageType.MEMORY);
+                    assertThat(engine.getStorage().getJdbc().getDocumentTable()).isEqualTo("workflow_document");
+                    assertThat(engine.getStorage().getJdbc().isInitializeSchema()).isFalse();
                     assertThat(engine.getSla()).isNotNull();
                     assertThat(engine.getSla().isEnabled()).isFalse();
                 });

@@ -6,16 +6,13 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 
-import org.springframework.beans.factory.config.BeanDefinition;
+import org.springframework.aop.support.AopUtils;
 import org.springframework.context.ApplicationContext;
-import org.springframework.context.annotation.ClassPathScanningCandidateComponentProvider;
-import org.springframework.core.annotation.AnnotationUtils;
-import org.springframework.core.type.filter.AnnotationTypeFilter;
 import org.springframework.stereotype.Component;
 
 import com.anode.workflow.entities.steps.InvokableTask;
 import com.anode.workflow.spring.autoconfigure.annotations.Task;
-import com.anode.workflow.spring.autoconfigure.util.BeanNameUtils;
+import com.anode.workflow.spring.autoconfigure.runtime.ContextualTask;
 import com.anode.workflow.spring.autoconfigure.util.BeanNameValidator;
 
 import jakarta.annotation.PostConstruct;
@@ -98,93 +95,30 @@ public class TaskScanner {
     }
 
     /** SCAN AND BUILD REGISTRY **/
-    private void scan() {
-        String basePackage = findBasePackage();
-
-        ClassPathScanningCandidateComponentProvider scanner =
-                new ClassPathScanningCandidateComponentProvider(false);
-
-        scanner.addIncludeFilter(new AnnotationTypeFilter(Task.class));
-
-        for (BeanDefinition bd : scanner.findCandidateComponents(basePackage)) {
-            try {
-                Class<?> clazz = Class.forName(bd.getBeanClassName());
-                registerTaskClass(clazz);
-            } catch (ClassNotFoundException e) {
-                throw new IllegalStateException(
-                    "Failed to load @Task class: " + bd.getBeanClassName() +
-                    ". Class was found during scanning but cannot be loaded.", e);
-            } catch (NoClassDefFoundError e) {
-                throw new IllegalStateException(
-                    "Failed to load @Task class: " + bd.getBeanClassName() +
-                    ". Missing dependency for class.", e);
-            }
-        }
-    }
-
-    private void registerTaskClass(Class<?> clazz) {
-        Task annotation = AnnotationUtils.findAnnotation(clazz, Task.class);
-        if (annotation == null) return;
-
-        String beanName = annotation.value().isEmpty()
-            ? BeanNameUtils.deriveBeanName(clazz)
-            : annotation.value();
-
-        // Validate bean name using the comprehensive validator
-        BeanNameValidator.validate(beanName, clazz);
-
-        // Check for duplicate bean names
-        if (registry.containsKey(beanName)) {
-            TaskDescriptor existing = registry.get(beanName);
-            throw new IllegalStateException(
-                "Duplicate task bean name: '" + beanName + "'. " +
-                "Task class '" + clazz.getName() + "' conflicts with existing task. " +
-                "Existing task name: '" + existing.taskName() + "'. " +
-                "Use @Task(\"uniqueName\") to specify a unique bean name."
-            );
-        }
-
-        Object bean;
-        try {
-            bean = context.getBean(beanName);
-        } catch (org.springframework.beans.factory.NoSuchBeanDefinitionException e) {
-            throw new IllegalStateException(
-                "Bean '" + beanName + "' referenced by @Task on class '" +
-                clazz.getName() + "' not found. " +
-                "Ensure the class is annotated with @Component or @Service, or registered as a bean.", e);
-        }
-
-        if (!(bean instanceof InvokableTask)) {
-            throw new IllegalStateException(
-                "Bean '" + beanName + "' is annotated with @Task but does NOT implement InvokableTask"
-            );
-        }
-
-        String taskName = clazz.getSimpleName().toLowerCase(Locale.ROOT);
-
-        TaskDescriptor descriptor = new TaskDescriptor(
-                taskName,
-                beanName,
-                annotation.order(),
-                annotation.userData()
-        );
-
-        registry.put(beanName, descriptor);
-        taskNameIndex.put(taskName, descriptor);
-    }
-
     /**
-     * Automatically finds the root package of the app.
+     * Indexes the context's {@code @Task} beans. {@code @Task} is a {@code @Component}, so Spring's
+     * own component scanning already found them: no classpath scanning here.
      */
-    private String findBasePackage() {
-        return context.getEnvironment().getProperty(
-                "workflow.scan-base-package",
-                "com.anode"
-        );
+    private void scan() {
+        for (Map.Entry<String, Object> entry : context.getBeansWithAnnotation(Task.class).entrySet()) {
+            String beanName = entry.getKey();
+            Object bean = entry.getValue();
+            Class<?> clazz = AopUtils.getTargetClass(bean);
+            Task annotation = context.findAnnotationOnBean(beanName, Task.class);
+
+            BeanNameValidator.validate(beanName, clazz);
+            if (!(bean instanceof InvokableTask) && !(bean instanceof ContextualTask)) {
+                throw new IllegalStateException("Bean '" + beanName
+                        + "' is annotated with @Task but implements neither InvokableTask nor ContextualTask");
+            }
+
+            String taskName = clazz.getSimpleName().toLowerCase(Locale.ROOT);
+            TaskDescriptor descriptor =
+                    new TaskDescriptor(taskName, beanName, annotation.order(), annotation.userData());
+            registry.put(beanName, descriptor);
+            taskNameIndex.put(taskName, descriptor);
+        }
     }
-
-
-
 
     public record TaskDescriptor(
             String taskName,

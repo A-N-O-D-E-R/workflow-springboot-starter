@@ -1,6 +1,6 @@
 package com.anode.workflow.spring.autoconfigure.condition;
 
-import com.anode.workflow.spring.autoconfigure.properties.JpaProperties.StorageType;
+import com.anode.workflow.spring.autoconfigure.properties.StorageProperties.StorageType;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.runner.ApplicationContextRunner;
 import org.springframework.context.annotation.Bean;
@@ -119,7 +119,7 @@ class OnStorageTypeConditionTest {
     }
 
     @Configuration
-    @ConditionalOnStorageType(StorageType.JPA)
+    @ConditionalOnStorageType(StorageType.JDBC)
     static class JpaTestConfig {
         @Bean
         public String jpaBean() {
@@ -145,7 +145,7 @@ class OnStorageTypeConditionTest {
         }
 
         @Bean
-        @ConditionalOnStorageType(StorageType.JPA)
+        @ConditionalOnStorageType(StorageType.JDBC)
         public String jpaBean() {
             return "jpa-storage";
         }

@@ -1,300 +1,119 @@
 package com.anode.workflow.spring.autoconfigure.impl;
 
-import com.anode.workflow.entities.steps.InvokableRoute;
-import com.anode.workflow.entities.steps.InvokableTask;
-import com.anode.workflow.entities.steps.Step.StepType;
-import com.anode.workflow.entities.workflows.WorkflowContext;
-import com.anode.workflow.service.WorkflowComponantFactory;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
-import org.springframework.beans.factory.ObjectProvider;
-import org.springframework.context.ApplicationContext;
-
-import java.util.Collections;
-import java.util.stream.Stream;
-
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
-/**
- * Tests for {@link DefaultWorkflowComponentFactory}.
- */
+import com.anode.workflow.entities.steps.InvokableRoute;
+import com.anode.workflow.entities.steps.InvokableTask;
+import com.anode.workflow.entities.steps.Step.StepType;
+import com.anode.workflow.entities.steps.responses.RouteResponse;
+import com.anode.workflow.entities.steps.responses.StepResponseType;
+import com.anode.workflow.entities.steps.responses.TaskResponse;
+import com.anode.workflow.entities.workflows.WorkflowContext;
+import com.anode.workflow.service.WorkflowComponantFactory;
+import com.anode.workflow.spring.autoconfigure.runtime.ContextualRoute;
+import com.anode.workflow.spring.autoconfigure.runtime.ContextualTask;
+import java.util.List;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.EnumSource;
+import org.springframework.beans.factory.support.StaticListableBeanFactory;
+
+/** {@link DefaultWorkflowComponentFactory} resolves a step's component by bean name. */
 class DefaultWorkflowComponentFactoryTest {
 
-    private DefaultWorkflowComponentFactory factory;
-    private ApplicationContext mockContext;
-    private ObjectProvider<InvokableTask> mockTaskProvider;
-    private ObjectProvider<InvokableRoute> mockRouteProvider;
+    private static final TaskResponse PROCEED = new TaskResponse(StepResponseType.OK_PROCEED, "", "");
+
+    private final StaticListableBeanFactory beans = new StaticListableBeanFactory();
+    private WorkflowComponantFactory factory;
 
     @BeforeEach
     void setUp() {
-        mockContext = mock(ApplicationContext.class);
-        mockTaskProvider = mock(ObjectProvider.class);
-        mockRouteProvider = mock(ObjectProvider.class);
-
-        // By default, return empty streams
-        when(mockTaskProvider.stream()).thenReturn(Stream.empty());
-        when(mockRouteProvider.stream()).thenReturn(Stream.empty());
-
-        factory = new DefaultWorkflowComponentFactory(mockTaskProvider, mockRouteProvider);
-        factory.init();
+        factory = new DefaultWorkflowComponentFactory(beans);
     }
 
-    @Test
-    void shouldImplementWorkflowComponentFactory() {
-        assertThat(factory).isInstanceOf(WorkflowComponantFactory.class);
-    }
-
-    @Test
-    void shouldReturnTaskForTaskContext() {
-        // Given
-        InvokableTask mockTask = mock(InvokableTask.class);
-
+    private static WorkflowContext context(StepType type, String component, String caseId) {
         WorkflowContext context = mock(WorkflowContext.class);
-        when(context.getCompType()).thenReturn(StepType.TASK);
-        // Use the actual class name of the mock as the component name
-        when(context.getCompName()).thenReturn(mockTask.getClass().getName());
-
-        // Re-initialize factory with mock task (use fresh providers to avoid stream reuse)
-        ObjectProvider<InvokableTask> taskProvider = mock(ObjectProvider.class);
-        ObjectProvider<InvokableRoute> emptyRouteProvider = mock(ObjectProvider.class);
-        when(taskProvider.stream()).thenReturn(Stream.of(mockTask));
-        when(emptyRouteProvider.stream()).thenReturn(Stream.empty());
-
-        factory = new DefaultWorkflowComponentFactory(taskProvider, emptyRouteProvider);
-        factory.init();
-
-        // When
-        Object result = factory.getObject(context);
-
-        // Then
-        assertThat(result).isEqualTo(mockTask);
+        when(context.getCompType()).thenReturn(type);
+        when(context.getCompName()).thenReturn(component);
+        when(context.getCaseId()).thenReturn(caseId);
+        return context;
     }
 
     @Test
-    void shouldThrowExceptionForUnsupportedComponentType() {
-        // Given
-        WorkflowContext context = mock(WorkflowContext.class);
-        when(context.getCompType()).thenReturn(null);
+    void returnsTheInvokableTaskBeanNamedByTheStep() {
+        InvokableTask task = () -> PROCEED;
+        beans.addBean("prepare", task);
 
-        // When/Then
-        assertThatThrownBy(() -> factory.getObject(context))
-            .isInstanceOf(IllegalArgumentException.class)
-            .hasMessageContaining("Component type cannot be null");
+        assertThat(factory.getObject(context(StepType.TASK, "prepare", "C-1"))).isSameAs(task);
     }
 
     @Test
-    void shouldThrowExceptionForMissingTask() {
-        // Given
-        WorkflowContext context = mock(WorkflowContext.class);
-        when(context.getCompType()).thenReturn(StepType.TASK);
-        when(context.getCompName()).thenReturn("nonExistentTask");
+    void aContextualTaskReceivesTheContextOfEachCall() {
+        List<String> seen = new java.util.ArrayList<>();
+        beans.addBean("review", (ContextualTask) ctx -> {
+            seen.add(ctx.getCaseId());
+            return PROCEED;
+        });
 
-        // Re-initialize factory with empty providers (fresh providers to avoid stream reuse)
-        ObjectProvider<InvokableTask> emptyTaskProvider = mock(ObjectProvider.class);
-        ObjectProvider<InvokableRoute> emptyRouteProvider = mock(ObjectProvider.class);
-        when(emptyTaskProvider.stream()).thenReturn(Stream.empty());
-        when(emptyRouteProvider.stream()).thenReturn(Stream.empty());
+        ((InvokableTask) factory.getObject(context(StepType.TASK, "review", "C-1"))).executeStep();
+        ((InvokableTask) factory.getObject(context(StepType.TASK, "review", "C-2"))).executeStep();
 
-        factory = new DefaultWorkflowComponentFactory(emptyTaskProvider, emptyRouteProvider);
-        factory.init();
+        assertThat(seen).containsExactly("C-1", "C-2");
+    }
 
-        // When/Then
-        assertThatThrownBy(() -> factory.getObject(context))
-            .isInstanceOf(IllegalStateException.class)
-            .hasMessageContaining("No InvokableTask bean found");
+    @ParameterizedTest
+    @EnumSource(names = {"S_ROUTE", "P_ROUTE", "P_ROUTE_DYNAMIC"})
+    void returnsRoutesForAllRouteTypes(StepType type) {
+        InvokableRoute route = () -> new RouteResponse(StepResponseType.OK_PROCEED, List.of("yes"), "");
+        beans.addBean("decide", route);
+
+        assertThat(factory.getObject(context(type, "decide", "C-1"))).isSameAs(route);
     }
 
     @Test
-    void shouldBeInstantiable() {
-        assertThat(factory).isNotNull();
+    void aContextualRouteReceivesTheContext() {
+        beans.addBean("decide", (ContextualRoute) ctx ->
+                new RouteResponse(StepResponseType.OK_PROCEED, List.of(ctx.getCaseId()), ""));
+
+        var route = (InvokableRoute) factory.getObject(context(StepType.S_ROUTE, "decide", "C-9"));
+
+        assertThat(route.executeRoute().getBranches()).containsExactly("C-9");
     }
 
     @Test
-    void shouldThrowExceptionForNullContext() {
-        // When/Then
-        assertThatThrownBy(() -> factory.getObject(null))
-            .isInstanceOf(IllegalArgumentException.class)
-            .hasMessageContaining("WorkflowContext cannot be null");
+    void unknownBeanIsAnError() {
+        assertThatThrownBy(() -> factory.getObject(context(StepType.TASK, "missing", "C-1")))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("No task bean found with name: 'missing'");
     }
 
     @Test
-    void shouldThrowExceptionForNullComponentType() {
-        // Given
-        WorkflowContext context = mock(WorkflowContext.class);
-        when(context.getCompType()).thenReturn(null);
-        when(context.getCompName()).thenReturn("testTask");
+    void aBeanOfTheWrongKindIsAnError() {
+        beans.addBean("notATask", "just a string");
 
-        // When/Then
-        assertThatThrownBy(() -> factory.getObject(context))
-            .isInstanceOf(IllegalArgumentException.class)
-            .hasMessageContaining("Component type cannot be null");
+        assertThatThrownBy(() -> factory.getObject(context(StepType.TASK, "notATask", "C-1")))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("neither an InvokableTask nor a ContextualTask");
+    }
+
+    @ParameterizedTest
+    @EnumSource(names = {"PAUSE", "P_JOIN", "PERSIST"})
+    void engineHandledStepTypesAreNotComponents(StepType type) {
+        assertThatThrownBy(() -> factory.getObject(context(type, "x", "C-1")))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("Unsupported component type");
     }
 
     @Test
-    void shouldThrowExceptionForNullComponentName() {
-        // Given
-        WorkflowContext context = mock(WorkflowContext.class);
-        when(context.getCompType()).thenReturn(StepType.TASK);
-        when(context.getCompName()).thenReturn(null);
-
-        // When/Then
-        assertThatThrownBy(() -> factory.getObject(context))
-            .isInstanceOf(IllegalArgumentException.class)
-            .hasMessageContaining("Component name cannot be null");
-    }
-
-    @Test
-    void shouldThrowExceptionForEmptyComponentName() {
-        // Given
-        WorkflowContext context = mock(WorkflowContext.class);
-        when(context.getCompType()).thenReturn(StepType.TASK);
-        when(context.getCompName()).thenReturn("  ");
-
-        // When/Then
-        assertThatThrownBy(() -> factory.getObject(context))
-            .isInstanceOf(IllegalArgumentException.class)
-            .hasMessageContaining("Component name cannot be null or empty");
-    }
-
-    @Test
-    void shouldReturnRouteForSRouteContext() {
-        // Given
-        InvokableRoute mockRoute = mock(InvokableRoute.class);
-
-        WorkflowContext context = mock(WorkflowContext.class);
-        when(context.getCompType()).thenReturn(StepType.S_ROUTE);
-        when(context.getCompName()).thenReturn(mockRoute.getClass().getName());
-
-        // Re-initialize factory with mock route
-        ObjectProvider<InvokableTask> emptyTaskProvider = mock(ObjectProvider.class);
-        ObjectProvider<InvokableRoute> routeProvider = mock(ObjectProvider.class);
-        when(emptyTaskProvider.stream()).thenReturn(Stream.empty());
-        when(routeProvider.stream()).thenReturn(Stream.of(mockRoute));
-
-        factory = new DefaultWorkflowComponentFactory(emptyTaskProvider, routeProvider);
-        factory.init();
-
-        // When
-        Object result = factory.getObject(context);
-
-        // Then
-        assertThat(result).isEqualTo(mockRoute);
-    }
-
-    @Test
-    void shouldReturnRouteForPRouteContext() {
-        // Given
-        InvokableRoute mockRoute = mock(InvokableRoute.class);
-
-        WorkflowContext context = mock(WorkflowContext.class);
-        when(context.getCompType()).thenReturn(StepType.P_ROUTE);
-        when(context.getCompName()).thenReturn(mockRoute.getClass().getName());
-
-        // Re-initialize factory with mock route
-        ObjectProvider<InvokableTask> emptyTaskProvider = mock(ObjectProvider.class);
-        ObjectProvider<InvokableRoute> routeProvider = mock(ObjectProvider.class);
-        when(emptyTaskProvider.stream()).thenReturn(Stream.empty());
-        when(routeProvider.stream()).thenReturn(Stream.of(mockRoute));
-
-        factory = new DefaultWorkflowComponentFactory(emptyTaskProvider, routeProvider);
-        factory.init();
-
-        // When
-        Object result = factory.getObject(context);
-
-        // Then
-        assertThat(result).isEqualTo(mockRoute);
-    }
-
-    @Test
-    void shouldReturnRouteForPRouteDynamicContext() {
-        // Given
-        InvokableRoute mockRoute = mock(InvokableRoute.class);
-
-        WorkflowContext context = mock(WorkflowContext.class);
-        when(context.getCompType()).thenReturn(StepType.P_ROUTE_DYNAMIC);
-        when(context.getCompName()).thenReturn(mockRoute.getClass().getName());
-
-        // Re-initialize factory with mock route
-        ObjectProvider<InvokableTask> emptyTaskProvider = mock(ObjectProvider.class);
-        ObjectProvider<InvokableRoute> routeProvider = mock(ObjectProvider.class);
-        when(emptyTaskProvider.stream()).thenReturn(Stream.empty());
-        when(routeProvider.stream()).thenReturn(Stream.of(mockRoute));
-
-        factory = new DefaultWorkflowComponentFactory(emptyTaskProvider, routeProvider);
-        factory.init();
-
-        // When
-        Object result = factory.getObject(context);
-
-        // Then
-        assertThat(result).isEqualTo(mockRoute);
-    }
-
-    @Test
-    void shouldThrowExceptionForPauseType() {
-        // Given
-        WorkflowContext context = mock(WorkflowContext.class);
-        when(context.getCompType()).thenReturn(StepType.PAUSE);
-        when(context.getCompName()).thenReturn("testPause");
-
-        // When/Then
-        assertThatThrownBy(() -> factory.getObject(context))
-            .isInstanceOf(IllegalArgumentException.class)
-            .hasMessageContaining("Unsupported component type: PAUSE")
-            .hasMessageContaining("should be handled by the Runtime Service");
-    }
-
-    @Test
-    void shouldThrowExceptionForPJoinType() {
-        // Given
-        WorkflowContext context = mock(WorkflowContext.class);
-        when(context.getCompType()).thenReturn(StepType.P_JOIN);
-        when(context.getCompName()).thenReturn("testJoin");
-
-        // When/Then
-        assertThatThrownBy(() -> factory.getObject(context))
-            .isInstanceOf(IllegalArgumentException.class)
-            .hasMessageContaining("Unsupported component type: P_JOIN")
-            .hasMessageContaining("should be handled by the Runtime Service");
-    }
-
-    @Test
-    void shouldThrowExceptionForPersistType() {
-        // Given
-        WorkflowContext context = mock(WorkflowContext.class);
-        when(context.getCompType()).thenReturn(StepType.PERSIST);
-        when(context.getCompName()).thenReturn("testPersist");
-
-        // When/Then
-        assertThatThrownBy(() -> factory.getObject(context))
-            .isInstanceOf(IllegalArgumentException.class)
-            .hasMessageContaining("Unsupported component type: PERSIST")
-            .hasMessageContaining("should be handled by the Runtime Service");
-    }
-
-    @Test
-    void shouldThrowExceptionForMissingRoute() {
-        // Given
-        WorkflowContext context = mock(WorkflowContext.class);
-        when(context.getCompType()).thenReturn(StepType.S_ROUTE);
-        when(context.getCompName()).thenReturn("nonExistentRoute");
-
-        // Re-initialize factory with empty providers (fresh providers to avoid stream reuse)
-        ObjectProvider<InvokableTask> emptyTaskProvider = mock(ObjectProvider.class);
-        ObjectProvider<InvokableRoute> emptyRouteProvider = mock(ObjectProvider.class);
-        when(emptyTaskProvider.stream()).thenReturn(Stream.empty());
-        when(emptyRouteProvider.stream()).thenReturn(Stream.empty());
-
-        factory = new DefaultWorkflowComponentFactory(emptyTaskProvider, emptyRouteProvider);
-        factory.init();
-
-        // When/Then
-        assertThatThrownBy(() -> factory.getObject(context))
-            .isInstanceOf(IllegalStateException.class)
-            .hasMessageContaining("No InvokableRoute bean found");
+    void rejectsIncompleteContexts() {
+        assertThatThrownBy(() -> factory.getObject(null)).isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> factory.getObject(context(null, "x", "C-1")))
+                .isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> factory.getObject(context(StepType.TASK, " ", "C-1")))
+                .isInstanceOf(IllegalArgumentException.class);
     }
 }

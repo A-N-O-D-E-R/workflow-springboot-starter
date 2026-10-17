@@ -2,7 +2,6 @@ package com.anode.workflow.spring.autoconfigure.runtime;
 
 import java.util.List;
 import java.util.Map;
-import java.util.Map.Entry;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -66,18 +65,18 @@ public class WorkflowEngine {
 
     private static final Logger logger = LoggerFactory.getLogger(WorkflowEngine.class);
 
-    private final Map<String, RuntimeService> runtimeServices;
+    private final WorkflowRuntimes runtimes;
     private final TaskScanner taskScanner;
     private ApplicationContext applicationContext;
 
     /**
-     * Constructs a WorkflowEngine with the given runtime services and task scanner.
+     * Constructs a WorkflowEngine over the configured engines.
      *
-     * @param services map of engine names to runtime services
+     * @param runtimes the configured engines
      * @param taskScanner the task scanner for task discovery
      */
-    public WorkflowEngine(Map<String, RuntimeService> services, TaskScanner taskScanner) {
-        this.runtimeServices = services;
+    public WorkflowEngine(WorkflowRuntimes runtimes, TaskScanner taskScanner) {
+        this.runtimes = runtimes;
         this.taskScanner = taskScanner;
     }
 
@@ -92,89 +91,92 @@ public class WorkflowEngine {
     }
 
     // ------------------------------------------------------------
-    // PUBLIC API
+    // PUBLIC API — every operation uses a new RuntimeService (see WorkflowRuntimes)
     // ------------------------------------------------------------
 
-    /**
-     * Start a workflow given a sequence of task names.
-     *
-     * @param caseId unique case identifier (cannot be null or empty)
-     * @param beanNames list of task bean names
-     * @param variableMap workflow variables
-     * @return workflow context
-     * @throws IllegalArgumentException if caseId is null/empty or beanNames is invalid
-     */
+    /** Starts a case on the default engine from a sequence of {@code @Task} bean names. */
     public WorkflowContext startWorkflow(String caseId, List<String> beanNames, Map<String, Object> variableMap) {
-        validateCaseId(caseId);
-        WorkflowDefinition def = buildDefinition(beanNames);
-        WorkflowVariables vars = convertVariables(variableMap);
-        Entry<String, RuntimeService> rts = getDefaultRuntimeService();
-        logger.info("WorkflowEngine initialized using {}", rts.getKey());
-        return rts.getValue().startCase(caseId, def, vars, null);
+        return startWorkflow(caseId, runtimes.defaultEngine(), buildDefinition(beanNames), convertVariables(variableMap));
     }
 
-    /**
-     * Start a workflow given a workflow definition.
-     */
+    /** Starts a case on the default engine. */
     public WorkflowContext startWorkflow(String caseId, WorkflowDefinition definition, Map<String, Object> variableMap) {
-        validateCaseId(caseId);
-        WorkflowVariables vars = convertVariables(variableMap);
-        Entry<String, RuntimeService> rts = getDefaultRuntimeService();
-        logger.info("WorkflowEngine initialized using {}", rts.getKey());
-        return rts.getValue().startCase(caseId, definition, vars, null);
+        return startWorkflow(caseId, runtimes.defaultEngine(), definition, convertVariables(variableMap));
     }
 
-    public WorkflowContext startWorkflow(String caseId,  List<String> beanNames, WorkflowVariables variables) {
-        validateCaseId(caseId);
-        WorkflowDefinition def = buildDefinition(beanNames);
-        Entry<String, RuntimeService> rts = getDefaultRuntimeService();
-        logger.info("WorkflowEngine initialized using {}", rts.getKey());
-        return rts.getValue().startCase(caseId, def, variables, null);
+    /** Starts a case on the default engine from a sequence of {@code @Task} bean names. */
+    public WorkflowContext startWorkflow(String caseId, List<String> beanNames, WorkflowVariables variables) {
+        return startWorkflow(caseId, runtimes.defaultEngine(), buildDefinition(beanNames), variables);
     }
 
+    /** Starts a case on the default engine. */
     public WorkflowContext startWorkflow(String caseId, WorkflowDefinition definition, WorkflowVariables variables) {
-        validateCaseId(caseId);
-        Entry<String, RuntimeService> rts = getDefaultRuntimeService();
-        logger.info("WorkflowEngine initialized using {}", rts.getKey());
-        return rts.getValue().startCase(caseId, definition, variables, null);
+        return startWorkflow(caseId, runtimes.defaultEngine(), definition, variables);
     }
 
-
+    /** Starts a case on the named engine from a sequence of {@code @Task} bean names. */
     public WorkflowContext startWorkflow(String caseId, String engineName, List<String> beanNames, Map<String, Object> variableMap) {
-        validateCaseId(caseId);
-        WorkflowDefinition def = buildDefinition(beanNames);
-        WorkflowVariables vars = convertVariables(variableMap);
-        RuntimeService rts = getRuntimeService(engineName);
-        logger.info("WorkflowEngine initialized using {}", engineName);
-        return rts.startCase(caseId, def, vars, null);
+        return startWorkflow(caseId, engineName, buildDefinition(beanNames), convertVariables(variableMap));
+    }
+
+    /** Starts a case on the named engine. */
+    public WorkflowContext startWorkflow(String caseId, String engineName, WorkflowDefinition definition, Map<String, Object> variableMap) {
+        return startWorkflow(caseId, engineName, definition, convertVariables(variableMap));
+    }
+
+    /** Starts a case on the named engine from a sequence of {@code @Task} bean names. */
+    public WorkflowContext startWorkflow(String caseId, String engineName, List<String> beanNames, WorkflowVariables variables) {
+        return startWorkflow(caseId, engineName, buildDefinition(beanNames), variables);
     }
 
     /**
-     * Start a workflow given a workflow definition.
+     * Starts a case on the named engine: it runs until it pends (a step returned a pend, a pause)
+     * or ends.
      */
-    public WorkflowContext startWorkflow(String caseId, String engineName, WorkflowDefinition definition, Map<String, Object> variableMap) {
-        validateCaseId(caseId);
-        WorkflowVariables vars = convertVariables(variableMap);
-        RuntimeService rts = getRuntimeService(engineName);
-        logger.info("WorkflowEngine initialized using {}", engineName);
-        return rts.startCase(caseId, definition, vars, null);
-    }
-
-    public WorkflowContext startWorkflow(String caseId, String engineName,  List<String> beanNames, WorkflowVariables variables) {
-        validateCaseId(caseId);
-        WorkflowDefinition def = buildDefinition(beanNames);
-        RuntimeService rts = getRuntimeService(engineName);
-        logger.info("WorkflowEngine initialized using {}", engineName);
-        return rts.startCase(caseId, def, variables, null);
-    }
-
     public WorkflowContext startWorkflow(String caseId, String engineName, WorkflowDefinition definition, WorkflowVariables variables) {
         validateCaseId(caseId);
-        RuntimeService rts = getRuntimeService(engineName);
-        logger.info("WorkflowEngine initialized using {}", engineName);
-        return rts.startCase(caseId, definition, variables, null);
+        logger.debug("Starting case {} on engine {}", caseId, engineName);
+        return runtimes.runtime(engineName).startCase(caseId, definition, variables, null);
     }
 
+    /** Resumes a pended case of the default engine. */
+    public WorkflowContext resumeWorkflow(String caseId) {
+        return resumeWorkflow(caseId, runtimes.defaultEngine(), null);
+    }
+
+    /** Resumes a pended case of the default engine, first merging {@code variables} into it. */
+    public WorkflowContext resumeWorkflow(String caseId, Map<String, Object> variables) {
+        return resumeWorkflow(caseId, runtimes.defaultEngine(), convertVariables(variables));
+    }
+
+    /**
+     * Resumes a pended case of the named engine; {@code variables} (may be null) are merged into the
+     * case before it continues.
+     */
+    public WorkflowContext resumeWorkflow(String caseId, String engineName, WorkflowVariables variables) {
+        validateCaseId(caseId);
+        logger.debug("Resuming case {} on engine {}", caseId, engineName);
+        return variables == null
+                ? runtimes.runtime(engineName).resumeCase(caseId)
+                : runtimes.runtime(engineName).resumeCase(caseId, variables);
+    }
+
+    /**
+     * Reopens a completed case of the named engine at the step of {@code ticket}; with {@code
+     * pendBeforeResume} it pends in {@code pendWorkBasket} instead of running immediately.
+     */
+    public WorkflowContext reopenWorkflow(
+            String caseId, String engineName, String ticket, boolean pendBeforeResume, String pendWorkBasket,
+            WorkflowVariables variables) {
+        validateCaseId(caseId);
+        return runtimes.runtime(engineName).reopenCase(caseId, ticket, pendBeforeResume, pendWorkBasket, variables);
+    }
+
+    /** Whether a case with this id exists on the named engine. */
+    public boolean isStarted(String caseId, String engineName) {
+        validateCaseId(caseId);
+        return runtimes.runtime(engineName).isCaseStarted(caseId);
+    }
 
     /**
      * Build workflow definition from a list of bean names.
@@ -221,12 +223,9 @@ public class WorkflowEngine {
             String current = beanNames.get(i);
             String next = i < beanNames.size() - 1 ? beanNames.get(i + 1) : END_STEP; // Workflow ask for the last step to be name END_STEP"
             TaskDescriptor td = getTaskOrThrow(current);
-            Task step = new Task(
-                    i==0?START_STEP:td.taskName(), // Workflow ask for the first step to be START_STEP
-                    td.beanName(),
-                    next,
-                    null
-            );
+            // steps are named after their bean (unique in the context), "next" refers to those
+            // names; the engine requires the first step to be named START_STEP
+            Task step = new Task(i == 0 ? START_STEP : td.beanName(), td.beanName(), next, null);
 
             def.addStep(step);
         }
@@ -466,11 +465,28 @@ public class WorkflowEngine {
         WorkflowVariables vars = new WorkflowVariables();
         if (map == null) return vars;
 
-        map.forEach((key, val) -> {
-            vars.setValue(key, WorkflowVariableType.OBJECT, val);
-        });
-
+        map.forEach((key, val) -> vars.setValue(key, typeOf(val), val));
         return vars;
+    }
+
+    /** The most specific variable type for a value, so it persists as readable text when possible. */
+    static WorkflowVariableType typeOf(Object value) {
+        return switch (value) {
+            case String s -> WorkflowVariableType.STRING;
+            case Boolean b -> WorkflowVariableType.BOOLEAN;
+            case Integer i -> WorkflowVariableType.INTEGER;
+            case Long l -> WorkflowVariableType.LONG;
+            case List<?> list when !list.isEmpty() && list.stream().allMatch(String.class::isInstance) ->
+                    WorkflowVariableType.LIST_OF_STRING;
+            case List<?> list when !list.isEmpty() && list.stream().allMatch(Boolean.class::isInstance) ->
+                    WorkflowVariableType.LIST_OF_BOOLEAN;
+            case List<?> list when !list.isEmpty() && list.stream().allMatch(Integer.class::isInstance) ->
+                    WorkflowVariableType.LIST_OF_INTEGER;
+            case List<?> list when !list.isEmpty() && list.stream().allMatch(Long.class::isInstance) ->
+                    WorkflowVariableType.LIST_OF_LONG;
+            case List<?> list -> WorkflowVariableType.LIST_OF_OBJECT;
+            case null, default -> WorkflowVariableType.OBJECT;
+        };
     }
 
     /**
@@ -495,27 +511,6 @@ public class WorkflowEngine {
         return td;
     }
 
-
-    private Entry<String, RuntimeService> getDefaultRuntimeService() {
-        return runtimeServices.entrySet()
-                .stream()
-                .findFirst()
-                .orElseThrow(() -> new IllegalStateException("No RuntimeService available"));
-    }
-
-
-    /**
-     * Get RuntimeService by name or throw exception with helpful message.
-     */
-    private RuntimeService getRuntimeService(String engineName) {
-        RuntimeService rts = runtimeServices.get(engineName);
-        if (rts == null) {
-            throw new IllegalArgumentException(
-                "No RuntimeService found for engine: '" + engineName + "'. " +
-                "Available engines: " + runtimeServices.keySet());
-        }
-        return rts;
-    }
 
 }
 

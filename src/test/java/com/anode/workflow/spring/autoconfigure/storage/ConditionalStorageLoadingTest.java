@@ -30,7 +30,7 @@ class ConditionalStorageLoadingTest {
             )
             .withUserConfiguration(
                 MemoryStorageConfiguration.class,
-                JpaStorageConfiguration.class,
+                JdbcStorageConfiguration.class,
                 FileStorageConfiguration.class
             )
             .run(context -> {
@@ -39,9 +39,9 @@ class ConditionalStorageLoadingTest {
                 assertThat(context).hasBean("memoryCommonService");
 
                 // JPA and File storage should NOT be loaded
-                assertThat(context).doesNotHaveBean(JpaStorageConfiguration.class);
+                assertThat(context).doesNotHaveBean(JdbcStorageConfiguration.class);
                 assertThat(context).doesNotHaveBean(FileStorageConfiguration.class);
-                assertThat(context).doesNotHaveBean("jpaCommonService");
+                assertThat(context).doesNotHaveBean("jdbcCommonService");
                 assertThat(context).doesNotHaveBean("fileCommonService");
             });
     }
@@ -55,7 +55,7 @@ class ConditionalStorageLoadingTest {
             )
             .withUserConfiguration(
                 MemoryStorageConfiguration.class,
-                JpaStorageConfiguration.class,
+                JdbcStorageConfiguration.class,
                 FileStorageConfiguration.class
             )
             .run(context -> {
@@ -65,9 +65,9 @@ class ConditionalStorageLoadingTest {
 
                 // Memory and JPA storage should NOT be loaded
                 assertThat(context).doesNotHaveBean(MemoryStorageConfiguration.class);
-                assertThat(context).doesNotHaveBean(JpaStorageConfiguration.class);
+                assertThat(context).doesNotHaveBean(JdbcStorageConfiguration.class);
                 assertThat(context).doesNotHaveBean("memoryCommonService");
-                assertThat(context).doesNotHaveBean("jpaCommonService");
+                assertThat(context).doesNotHaveBean("jdbcCommonService");
             });
     }
 
@@ -82,7 +82,7 @@ class ConditionalStorageLoadingTest {
             )
             .withUserConfiguration(
                 MemoryStorageConfiguration.class,
-                JpaStorageConfiguration.class,
+                JdbcStorageConfiguration.class,
                 FileStorageConfiguration.class
             )
             .run(context -> {
@@ -93,8 +93,8 @@ class ConditionalStorageLoadingTest {
                 assertThat(context).hasBean("fileCommonService");
 
                 // JPA storage should NOT be loaded
-                assertThat(context).doesNotHaveBean(JpaStorageConfiguration.class);
-                assertThat(context).doesNotHaveBean("jpaCommonService");
+                assertThat(context).doesNotHaveBean(JdbcStorageConfiguration.class);
+                assertThat(context).doesNotHaveBean("jdbcCommonService");
             });
     }
 
@@ -103,16 +103,16 @@ class ConditionalStorageLoadingTest {
         contextRunner
             .withUserConfiguration(
                 MemoryStorageConfiguration.class,
-                JpaStorageConfiguration.class,
+                JdbcStorageConfiguration.class,
                 FileStorageConfiguration.class
             )
             .run(context -> {
                 // No storage should be loaded when no engines are configured
                 assertThat(context).doesNotHaveBean(MemoryStorageConfiguration.class);
-                assertThat(context).doesNotHaveBean(JpaStorageConfiguration.class);
+                assertThat(context).doesNotHaveBean(JdbcStorageConfiguration.class);
                 assertThat(context).doesNotHaveBean(FileStorageConfiguration.class);
                 assertThat(context).doesNotHaveBean("memoryCommonService");
-                assertThat(context).doesNotHaveBean("jpaCommonService");
+                assertThat(context).doesNotHaveBean("jdbcCommonService");
                 assertThat(context).doesNotHaveBean("fileCommonService");
             });
     }

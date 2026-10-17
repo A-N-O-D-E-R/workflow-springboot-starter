@@ -1,7 +1,7 @@
 package com.anode.workflow.spring.autoconfigure.storage;
 
 import com.anode.tool.service.CommonService;
-import com.anode.workflow.spring.autoconfigure.properties.JpaProperties.StorageType;
+import com.anode.workflow.spring.autoconfigure.properties.StorageProperties.StorageType;
 import com.anode.workflow.spring.autoconfigure.properties.WorkflowEnginesProperties;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -14,6 +14,8 @@ import java.nio.file.Path;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.*;
+
+import com.anode.workflow.entities.workflows.WorkflowDefinition;
 
 /**
  * Tests for {@link FileStorageConfiguration} including security features.
@@ -62,22 +64,22 @@ class FileStorageTest {
     @Test
     void shouldSaveAndRetrieveObject() {
         // Given
-        TestEntity entity = new TestEntity("test-id", "test-value");
+        String entity = text("test-id", "test-value");
 
         // When
         fileStorage.save("test-id", entity);
-        TestEntity retrieved = fileStorage.get(TestEntity.class, "test-id");
+        String retrieved = fileStorage.get(String.class, "test-id");
 
         // Then
         assertThat(retrieved).isNotNull();
-        assertThat(retrieved.id()).isEqualTo("test-id");
-        assertThat(retrieved.value()).isEqualTo("test-value");
+        assertThat(id(retrieved)).isEqualTo("test-id");
+        assertThat(value(retrieved)).isEqualTo("test-value");
     }
 
     @Test
     void shouldPreventPathTraversalWithDotDot() {
         // Given - attempt to escape directory with ../
-        TestEntity entity = new TestEntity("test", "value");
+        String entity = text("test", "value");
         Serializable maliciousId = "../../../etc/passwd";
 
         // When - should sanitize the ID
@@ -90,14 +92,14 @@ class FileStorageTest {
         assertThat(expectedFile).exists();
 
         // And should be retrievable with the same ID
-        TestEntity retrieved = fileStorage.get(TestEntity.class, maliciousId);
+        String retrieved = fileStorage.get(String.class, maliciousId);
         assertThat(retrieved).isNotNull();
     }
 
     @Test
     void shouldPreventPathTraversalWithForwardSlash() {
         // Given - attempt to create subdirectory
-        TestEntity entity = new TestEntity("test", "value");
+        String entity = text("test", "value");
         Serializable maliciousId = "subdir/file";
 
         // When
@@ -115,7 +117,7 @@ class FileStorageTest {
     @Test
     void shouldPreventPathTraversalWithBackslash() {
         // Given - Windows-style path traversal
-        TestEntity entity = new TestEntity("test", "value");
+        String entity = text("test", "value");
         Serializable maliciousId = "subdir\\file";
 
         // When
@@ -129,7 +131,7 @@ class FileStorageTest {
     @Test
     void shouldPreventNullByteInjection() {
         // Given - null byte attack
-        TestEntity entity = new TestEntity("test", "value");
+        String entity = text("test", "value");
         Serializable maliciousId = "file\u0000.txt";
 
         // When
@@ -143,7 +145,7 @@ class FileStorageTest {
     @Test
     void shouldHandleMultipleDotDotSequences() {
         // Given - multiple .. sequences
-        TestEntity entity = new TestEntity("test", "value");
+        String entity = text("test", "value");
         Serializable maliciousId = "../../../elements";
 
         // When
@@ -159,33 +161,33 @@ class FileStorageTest {
     @Test
     void shouldDeleteFile() {
         // Given
-        fileStorage.save("test-id", new TestEntity("test-id", "value"));
+        fileStorage.save("test-id", text("test-id", "value"));
 
         // When
         fileStorage.delete("test-id");
 
         // Then
-        TestEntity retrieved = fileStorage.get(TestEntity.class, "test-id");
+        String retrieved = fileStorage.get(String.class, "test-id");
         assertThat(retrieved).isNull();
     }
 
     @Test
     void shouldUpdateExistingFile() {
         // Given
-        fileStorage.save("test-id", new TestEntity("test-id", "original"));
+        fileStorage.save("test-id", text("test-id", "original"));
 
         // When
-        fileStorage.update("test-id", new TestEntity("test-id", "updated"));
+        fileStorage.update("test-id", text("test-id", "updated"));
 
         // Then
-        TestEntity retrieved = fileStorage.get(TestEntity.class, "test-id");
-        assertThat(retrieved.value()).isEqualTo("updated");
+        String retrieved = fileStorage.get(String.class, "test-id");
+        assertThat(value(retrieved)).isEqualTo("updated");
     }
 
     @Test
     void shouldReturnNullForNonExistentFile() {
         // When
-        TestEntity retrieved = fileStorage.get(TestEntity.class, "non-existent");
+        String retrieved = fileStorage.get(String.class, "non-existent");
 
         // Then
         assertThat(retrieved).isNull();
@@ -207,32 +209,27 @@ class FileStorageTest {
     @Test
     void shouldGetAllObjectsOfType() {
         // Given
-        fileStorage.save("id1", new TestEntity("id1", "value1"));
-        fileStorage.save("id2", new TestEntity("id2", "value2"));
-        fileStorage.save("id3", new OtherEntity("other"));
+        fileStorage.save("id1", text("id1", "value1"));
+        fileStorage.save("id2", text("id2", "value2"));
+        fileStorage.save("id3", definition("other-kind"));
 
         // When
-        List<TestEntity> entities = fileStorage.getAll(TestEntity.class);
+        List<String> entities = fileStorage.getAll(String.class);
 
         // Then
         assertThat(entities).hasSize(2);
-        assertThat(entities).extracting(TestEntity::id).containsExactlyInAnyOrder("id1", "id2");
+        assertThat(entities).extracting(FileStorageTest::id).containsExactlyInAnyOrder("id1", "id2");
     }
 
     @Test
     void shouldGetUniqueItemByField() {
-        // Given
-        TestEntity entity1 = new TestEntity("id1", "unique-value");
-        TestEntity entity2 = new TestEntity("id2", "other-value");
-        fileStorage.save("id1", entity1);
-        fileStorage.save("id2", entity2);
+        fileStorage.save("journey_1", definition("order"));
+        fileStorage.save("journey_2", definition("refund"));
 
-        // When
-        TestEntity found = fileStorage.getUniqueItem(TestEntity.class, "value", "unique-value");
+        WorkflowDefinition found = fileStorage.getUniqueItem(WorkflowDefinition.class, "name", "refund");
 
-        // Then
         assertThat(found).isNotNull();
-        assertThat(found.id()).isEqualTo("id1");
+        assertThat(found.getName()).isEqualTo("refund");
     }
 
     @Test
@@ -242,19 +239,19 @@ class FileStorageTest {
 
         for (String id : normalIds) {
             // When
-            fileStorage.save(id, new TestEntity(id, "value"));
+            fileStorage.save(id, text(id, "value"));
 
             // Then
-            TestEntity retrieved = fileStorage.get(TestEntity.class, id);
+            String retrieved = fileStorage.get(String.class, id);
             assertThat(retrieved).isNotNull();
-            assertThat(retrieved.id()).isEqualTo(id);
+            assertThat(id(retrieved)).isEqualTo(id);
         }
     }
 
     @Test
     void shouldRejectEmptyId() {
         // Given
-        TestEntity entity = new TestEntity("", "value");
+        String entity = text("", "value");
 
         // When/Then
         assertThatThrownBy(() -> fileStorage.save("", entity))
@@ -265,7 +262,7 @@ class FileStorageTest {
     @Test
     void shouldRejectNullId() {
         // Given
-        TestEntity entity = new TestEntity("test", "value");
+        String entity = text("test", "value");
 
         // When/Then - More precise error message after concurrency fix
         assertThatThrownBy(() -> fileStorage.save(null, entity))
@@ -277,7 +274,7 @@ class FileStorageTest {
     void shouldRejectVeryLongId() {
         // Given - ID longer than 200 characters
         String veryLongId = "a".repeat(201);
-        TestEntity entity = new TestEntity("test", "value");
+        String entity = text("test", "value");
 
         // When/Then
         assertThatThrownBy(() -> fileStorage.save(veryLongId, entity))
@@ -289,13 +286,13 @@ class FileStorageTest {
     void shouldAcceptMaxLengthId() {
         // Given - ID exactly 200 characters (max allowed)
         String maxLengthId = "a".repeat(200);
-        TestEntity entity = new TestEntity("test", "value");
+        String entity = text("test", "value");
 
         // When
         fileStorage.save(maxLengthId, entity);
 
         // Then - should succeed
-        TestEntity retrieved = fileStorage.get(TestEntity.class, maxLengthId);
+        String retrieved = fileStorage.get(String.class, maxLengthId);
         assertThat(retrieved).isNotNull();
     }
 
@@ -303,7 +300,7 @@ class FileStorageTest {
     void shouldRejectIdThatBecomesEmptyAfterSanitization() {
         // Given - ID that contains only dangerous characters
         String allDangerousId = "///...\\\\\\";
-        TestEntity entity = new TestEntity("test", "value");
+        String entity = text("test", "value");
 
         // When/Then
         assertThatThrownBy(() -> fileStorage.save(allDangerousId, entity))
@@ -312,6 +309,22 @@ class FileStorageTest {
     }
 
     // Test entities
-    record TestEntity(String id, String value) implements Serializable {}
-    record OtherEntity(String data) implements Serializable {}
+    /** The file storage keeps engine objects; audit-log text is the simplest one. */
+    private static String text(String id, String value) {
+        return id + "=" + value;
+    }
+
+    private static String id(String text) {
+        return text.substring(0, text.indexOf('='));
+    }
+
+    private static String value(String text) {
+        return text.substring(text.indexOf('=') + 1);
+    }
+
+    private static WorkflowDefinition definition(String name) {
+        WorkflowDefinition definition = new WorkflowDefinition();
+        definition.setName(name);
+        return definition;
+    }
 }

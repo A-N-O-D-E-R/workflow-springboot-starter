@@ -1,10 +1,11 @@
 package com.anode.workflow.spring.autoconfigure.configuration;
 
-import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.function.Supplier;
 
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.ObjectProvider;
+import org.springframework.beans.factory.DisposableBean;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.AutoConfigureAfter;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
@@ -13,15 +14,15 @@ import org.springframework.context.annotation.Bean;
 
 import com.anode.tool.service.CommonService;
 import com.anode.workflow.WorkflowService;
-import com.anode.workflow.entities.steps.InvokableRoute;
-import com.anode.workflow.entities.steps.InvokableTask;
 import com.anode.workflow.service.EventHandler;
 import com.anode.workflow.service.SlaQueueManager;
 import com.anode.workflow.service.WorkflowComponantFactory;
 import com.anode.workflow.service.runtime.RuntimeService;
+import com.anode.workflow.spring.autoconfigure.properties.RuntimeProperties;
 import com.anode.workflow.spring.autoconfigure.properties.WorkflowEnginesProperties;
+import com.anode.workflow.spring.autoconfigure.runtime.WorkflowRuntimes;
 import com.anode.workflow.spring.autoconfigure.storage.FileStorageConfiguration;
-import com.anode.workflow.spring.autoconfigure.storage.JpaStorageConfiguration;
+import com.anode.workflow.spring.autoconfigure.storage.JdbcStorageConfiguration;
 import com.anode.workflow.spring.autoconfigure.storage.MemoryStorageConfiguration;
 import com.anode.workflow.spring.autoconfigure.impl.DefaultWorkflowComponentFactory;
 import com.anode.workflow.spring.autoconfigure.impl.NoOpsEventHandler;
@@ -41,7 +42,7 @@ import com.anode.workflow.spring.autoconfigure.impl.NoOpsSlaQueueManager;
  * <p><b>Provides beans:</b>
  * <ul>
  *   <li>{@link WorkflowService} - the main workflow service singleton</li>
- *   <li>{@code Map<String, RuntimeService>} - configured runtime services by name</li>
+ *   <li>{@link WorkflowRuntimes} - the configured engines; a new RuntimeService per operation</li>
  * </ul>
  *
  * @see WorkflowEnginesProperties
@@ -51,7 +52,7 @@ import com.anode.workflow.spring.autoconfigure.impl.NoOpsSlaQueueManager;
 @AutoConfiguration
 @EnableConfigurationProperties(WorkflowEnginesProperties.class)
 @AutoConfigureAfter({
-        JpaStorageConfiguration.class,
+        JdbcStorageConfiguration.class,
         MemoryStorageConfiguration.class,
         FileStorageConfiguration.class
 })
@@ -59,49 +60,45 @@ public class WorkflowAutoConfiguration {
 
     private static final org.slf4j.Logger log = LoggerFactory.getLogger(WorkflowAutoConfiguration.class);
 
-    @Bean
-    public WorkflowService workflowService() {
-        // Use the static singleton instance
+    /**
+     * The engine is process-wide (thread pool, key separator): initialized from {@code
+     * workflow.runtime.*} when the context starts, closed when it stops.
+     */
+    @Bean(destroyMethod = "")
+    public WorkflowService workflowService(WorkflowEnginesProperties properties) {
+        RuntimeProperties runtime = properties.getRuntime();
+        WorkflowService.init(
+                runtime.getThreads(),
+                Math.toIntExact(runtime.getIdleTimeout().toMillis()),
+                runtime.getKeySeparator(),
+                runtime.getErrorWorkbasket());
         return WorkflowService.instance();
     }
 
     @Bean
-    public Map<String,RuntimeService> runtimeServices(
+    public DisposableBean workflowServiceShutdown(WorkflowService workflowService) {
+        return WorkflowService::close;
+    }
+
+    @Bean
+    public WorkflowRuntimes workflowRuntimes(
             WorkflowEnginesProperties enginesProperties,
             ApplicationContext context,
-            WorkflowService workflowService
-    ) {
-
-        Map<String, RuntimeService> services = new HashMap<>();
-
+            WorkflowService workflowService) {
+        Map<String, Supplier<RuntimeService>> engines = new LinkedHashMap<>();
         for (WorkflowEnginesProperties.EngineConfig engine : enginesProperties.getEngines()) {
-
-            log.info("Creating RuntimeService for engine: {}", engine.getName());
-
-            WorkflowComponantFactory factory =
-                    resolveOrDefault(context, WorkflowComponantFactory.class);
-
-            EventHandler eventHandler =
-                    resolveOrDefault(context, EventHandler.class);
-
-            SlaQueueManager slaQueueManager =
-                    engine.getSla().isEnabled()
-                            ? resolveOrDefault(context, SlaQueueManager.class)
-                            : null;
-
+            log.info("Configuring workflow engine '{}' with {} storage", engine.getName(), engine.getStorage().getType());
             CommonService storage = resolveStorage(context, engine);
-
-            RuntimeService runtime = workflowService.getRunTimeService(
-                    storage,
-                    factory,
-                    eventHandler,
-                    slaQueueManager
-            );
-
-            services.put(engine.getName(),runtime);
+            WorkflowComponantFactory factory = resolveOrDefault(context, WorkflowComponantFactory.class);
+            EventHandler eventHandler = resolveOrDefault(context, EventHandler.class);
+            SlaQueueManager slaQueueManager =
+                    engine.getSla().isEnabled() ? resolveOrDefault(context, SlaQueueManager.class) : null;
+            if (engines.putIfAbsent(engine.getName(), () -> workflowService.getRunTimeService(
+                    storage, factory, eventHandler, slaQueueManager)) != null) {
+                throw new IllegalStateException("Duplicate workflow engine name: " + engine.getName());
+            }
         }
-
-        return services;
+        return new WorkflowRuntimes(engines);
     }
 
     private <T> T resolveOrDefault(ApplicationContext ctx, Class<T> type) {
@@ -130,9 +127,9 @@ public class WorkflowAutoConfiguration {
                   engine.getName(), storageType);
 
         switch (storageType) {
-            case JPA:
-                log.debug("Using JPA storage");
-                return ctx.getBean("jpaCommonService", CommonService.class);
+            case JDBC:
+                log.debug("Using JDBC storage");
+                return ctx.getBean("jdbcCommonService", CommonService.class);
 
             case MEMORY:
                 log.debug("Using in-memory storage");
@@ -163,10 +160,7 @@ public class WorkflowAutoConfiguration {
         if (type.equals(EventHandler.class)) return (T) new NoOpsEventHandler();
         if (type.equals(SlaQueueManager.class)) return (T) new NoOpsSlaQueueManager();
         if (type.equals(WorkflowComponantFactory.class)) {
-            // Get the ObjectProviders for InvokableTask and InvokableRoute from the context
-            ObjectProvider<InvokableTask> taskProvider = ctx.getBeanProvider(InvokableTask.class);
-            ObjectProvider<InvokableRoute> routeProvider = ctx.getBeanProvider(InvokableRoute.class);
-            return (T) new DefaultWorkflowComponentFactory(taskProvider, routeProvider);
+            return (T) new DefaultWorkflowComponentFactory(ctx);
         }
         throw new IllegalArgumentException("Unknown default for " + type);
     }

@@ -1,7 +1,10 @@
 package com.anode.workflow.spring.autoconfigure.impl;
 
-import org.springframework.beans.factory.ObjectProvider;
+import org.springframework.beans.factory.ListableBeanFactory;
 import org.springframework.stereotype.Service;
+
+import com.anode.workflow.spring.autoconfigure.runtime.ContextualRoute;
+import com.anode.workflow.spring.autoconfigure.runtime.ContextualTask;
 
 import com.anode.workflow.entities.steps.InvokableRoute;
 import com.anode.workflow.entities.steps.InvokableTask;
@@ -9,9 +12,6 @@ import com.anode.workflow.entities.steps.Step.StepType;
 import com.anode.workflow.entities.workflows.WorkflowContext;
 import com.anode.workflow.service.WorkflowComponantFactory;
 
-import jakarta.annotation.PostConstruct;
-import java.util.Map;
-import java.util.stream.Collectors;
 
 /**
  * Default implementation of workflow component factory.
@@ -33,67 +33,13 @@ import java.util.stream.Collectors;
 @Service
 public class DefaultWorkflowComponentFactory implements WorkflowComponantFactory {
 
-    private final ObjectProvider<InvokableTask> taskProvider;
-    private final ObjectProvider<InvokableRoute> routeProvider;
+    private final ListableBeanFactory beans;
 
-    private Map<String, InvokableTask> taskBeans;
-    private Map<String, InvokableRoute> routeBeans;
-
-    /**
-     * Constructs the factory with task and route providers.
-     *
-     * @param taskProvider provider for InvokableTask beans
-     * @param routeProvider provider for InvokableRoute beans
-     */
-    public DefaultWorkflowComponentFactory(
-            ObjectProvider<InvokableTask> taskProvider,
-            ObjectProvider<InvokableRoute> routeProvider
-    ) {
-        this.taskProvider = taskProvider;
-        this.routeProvider = routeProvider;
+    /** @param beans where task and route beans are looked up, by the component name of the step */
+    public DefaultWorkflowComponentFactory(ListableBeanFactory beans) {
+        this.beans = beans;
     }
 
-    /**
-     * Initializes the component caches from the providers.
-     * Called automatically after bean construction.
-     */
-    @PostConstruct
-    public void init() {
-        taskBeans = taskProvider.stream().collect(Collectors.toUnmodifiableMap(
-                bean -> bean.getClass().getName(),
-                bean -> bean
-        ));
-
-        routeBeans = routeProvider.stream().collect(Collectors.toUnmodifiableMap(
-                bean -> bean.getClass().getName(),
-                bean -> bean
-        ));
-    }
-
-
-    /**
-     * Returns the workflow component based on context.
-     *
-     * <p>Supported component types:
-     * <ul>
-     *   <li>{@link StepType#TASK} - Returns an {@link InvokableTask} implementation</li>
-     *   <li>{@link StepType#S_ROUTE} - Returns an {@link InvokableRoute} implementation (sequential route)</li>
-     *   <li>{@link StepType#P_ROUTE} - Returns an {@link InvokableRoute} implementation (parallel route)</li>
-     *   <li>{@link StepType#P_ROUTE_DYNAMIC} - Returns an {@link InvokableRoute} implementation (dynamic parallel route)</li>
-     * </ul>
-     *
-     * <p>Unsupported types (handled by Runtime Service):
-     * <ul>
-     *   <li>{@link StepType#PAUSE} - Workflow pause point</li>
-     *   <li>{@link StepType#P_JOIN} - Parallel join synchronization</li>
-     *   <li>{@link StepType#PERSIST} - Workflow persistence point</li>
-     * </ul>
-     *
-     * @param ctx the workflow context containing component type and name
-     * @return the workflow component (InvokableTask or InvokableRoute)
-     * @throws IllegalArgumentException if the component type is not supported or context/type/name is null/empty
-     * @throws IllegalStateException if the component bean is not found
-     */
     @Override
     public Object getObject(WorkflowContext ctx) {
         if (ctx == null) {
@@ -114,8 +60,8 @@ public class DefaultWorkflowComponentFactory implements WorkflowComponantFactory
         }
 
         return switch (componentType) {
-            case TASK -> findTask(componentName);
-            case S_ROUTE, P_ROUTE, P_ROUTE_DYNAMIC -> findRoute(componentName);
+            case TASK -> task(componentName, ctx);
+            case S_ROUTE, P_ROUTE, P_ROUTE_DYNAMIC -> route(componentName, ctx);
             case PAUSE, P_JOIN, PERSIST -> throw new IllegalArgumentException(
                 String.format(
                     "Unsupported component type: %s for component '%s'. " +
@@ -127,29 +73,28 @@ public class DefaultWorkflowComponentFactory implements WorkflowComponantFactory
         };
     }
 
-    /**
-     * Lookup a task bean by name and ensure it implements InvokableTask.
-     */
-    public InvokableTask findTask(String beanName) {
-        InvokableTask task = taskBeans.get(beanName);
-        if (task == null) {
-            throw new IllegalStateException(
-                    "No InvokableTask bean found with name: '" + beanName + "'"
-            );
-        }
-        return task;
+    private InvokableTask task(String beanName, WorkflowContext ctx) {
+        return switch (bean(beanName, "task")) {
+            case ContextualTask task -> () -> task.execute(ctx);
+            case InvokableTask task -> task;
+            case Object other -> throw new IllegalStateException(
+                    "Bean '" + beanName + "' is neither an InvokableTask nor a ContextualTask");
+        };
     }
 
-    /**
-     * Lookup a route bean by name and ensure it implements InvokableRoute.
-     */
-    public InvokableRoute findRoute(String beanName) {
-        InvokableRoute route = routeBeans.get(beanName);
-        if (route == null) {
-            throw new IllegalStateException(
-                    "No InvokableRoute bean found with name: '" + beanName + "'"
-            );
+    private InvokableRoute route(String beanName, WorkflowContext ctx) {
+        return switch (bean(beanName, "route")) {
+            case ContextualRoute route -> () -> route.execute(ctx);
+            case InvokableRoute route -> route;
+            case Object other -> throw new IllegalStateException(
+                    "Bean '" + beanName + "' is neither an InvokableRoute nor a ContextualRoute");
+        };
+    }
+
+    private Object bean(String beanName, String kind) {
+        if (!beans.containsBean(beanName)) {
+            throw new IllegalStateException("No " + kind + " bean found with name: '" + beanName + "'");
         }
-        return route;
+        return beans.getBean(beanName);
     }
 }

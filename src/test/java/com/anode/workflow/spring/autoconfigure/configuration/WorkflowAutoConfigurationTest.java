@@ -3,7 +3,8 @@ package com.anode.workflow.spring.autoconfigure.configuration;
 import com.anode.tool.service.CommonService;
 import com.anode.workflow.WorkflowService;
 import com.anode.workflow.service.runtime.RuntimeService;
-import com.anode.workflow.spring.autoconfigure.properties.JpaProperties.StorageType;
+import com.anode.workflow.spring.autoconfigure.runtime.WorkflowRuntimes;
+import com.anode.workflow.spring.autoconfigure.properties.StorageProperties.StorageType;
 import com.anode.workflow.spring.autoconfigure.storage.MemoryStorageConfiguration;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.runner.ApplicationContextRunner;
@@ -44,13 +45,10 @@ class WorkflowAutoConfigurationTest {
                 MemoryStorageConfiguration.class
             )
             .run(context -> {
-                assertThat(context).hasBean("runtimeServices");
+                WorkflowRuntimes runtimes = context.getBean(WorkflowRuntimes.class);
 
-                @SuppressWarnings("unchecked")
-                Map<String, RuntimeService> services = context.getBean("runtimeServices", Map.class);
-
-                assertThat(services).hasSize(2);
-                assertThat(services).containsKeys("engine1", "engine2");
+                assertThat(runtimes.names()).containsExactly("engine1", "engine2");
+                assertThat(runtimes.defaultEngine()).isEqualTo("engine1");
             });
     }
 
@@ -66,11 +64,7 @@ class WorkflowAutoConfigurationTest {
                 MemoryStorageConfiguration.class
             )
             .run(context -> {
-                @SuppressWarnings("unchecked")
-                Map<String, RuntimeService> services = context.getBean("runtimeServices", Map.class);
-
-                assertThat(services).hasSize(1);
-                assertThat(services).containsKey("single-engine");
+                assertThat(context.getBean(WorkflowRuntimes.class).names()).containsExactly("single-engine");
             });
     }
 
@@ -99,10 +93,7 @@ class WorkflowAutoConfigurationTest {
             .run(context -> {
                 assertThat(context).hasSingleBean(WorkflowService.class);
 
-                @SuppressWarnings("unchecked")
-                Map<String, RuntimeService> services = context.getBean("runtimeServices", Map.class);
-
-                assertThat(services).isEmpty();
+                assertThat(context.getBean(WorkflowRuntimes.class).names()).isEmpty();
             });
     }
 
@@ -119,11 +110,12 @@ class WorkflowAutoConfigurationTest {
                 MemoryStorageConfiguration.class
             )
             .run(context -> {
-                @SuppressWarnings("unchecked")
-                Map<String, RuntimeService> services = context.getBean("runtimeServices", Map.class);
+                WorkflowRuntimes runtimes = context.getBean(WorkflowRuntimes.class);
 
-                RuntimeService runtimeService = services.get("test-engine");
-                assertThat(runtimeService).isNotNull();
+                RuntimeService first = runtimes.runtime("test-engine");
+                assertThat(first).isNotNull();
+                // a RuntimeService holds per-case state: one per operation
+                assertThat(runtimes.runtime("test-engine")).isNotSameAs(first);
             });
     }
 
@@ -140,11 +132,12 @@ class WorkflowAutoConfigurationTest {
                 MemoryStorageConfiguration.class
             )
             .run(context -> {
-                @SuppressWarnings("unchecked")
-                Map<String, RuntimeService> services = context.getBean("runtimeServices", Map.class);
+                WorkflowRuntimes runtimes = context.getBean(WorkflowRuntimes.class);
 
-                RuntimeService runtimeService = services.get("sla-engine");
-                assertThat(runtimeService).isNotNull();
+                RuntimeService first = runtimes.runtime("sla-engine");
+                assertThat(first).isNotNull();
+                // a RuntimeService holds per-case state: one per operation
+                assertThat(runtimes.runtime("sla-engine")).isNotSameAs(first);
             });
     }
 }

@@ -7,7 +7,7 @@
  * <h2>Key Features</h2>
  * <ul>
  *   <li>Automatic workflow engine configuration via Spring Boot autoconfiguration</li>
- *   <li>Support for multiple storage backends (Memory, JPA, File)</li>
+ *   <li>Support for multiple storage backends (Memory, JDBC, File)</li>
  *   <li>Automatic task discovery using {@code @Task} annotation</li>
  *   <li>Fluent API for building and executing workflows</li>
  *   <li>Thread-safe concurrent operations with per-resource locking</li>

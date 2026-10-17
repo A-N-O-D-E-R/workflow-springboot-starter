@@ -2,9 +2,10 @@ package com.anode.workflow.spring.autoconfigure.storage;
 
 import com.anode.tool.service.CommonService;
 import com.anode.workflow.spring.autoconfigure.condition.ConditionalOnStorageType;
-import com.anode.workflow.spring.autoconfigure.properties.JpaProperties.StorageType;
+import com.anode.workflow.spring.autoconfigure.properties.StorageProperties.StorageType;
 import com.anode.workflow.spring.autoconfigure.properties.WorkflowEnginesProperties;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import com.anode.workflow.storage.WorkflowJson;
+import java.io.UncheckedIOException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
@@ -40,7 +41,7 @@ import java.util.concurrent.locks.ReentrantLock;
  * </pre>
  *
  * <p><b>WARNING:</b> This is suitable for development and small-scale testing only.
- * For production use, prefer JPA storage.
+ * For production use, prefer JDBC storage.
  */
 @Configuration
 @ConditionalOnStorageType(StorageType.FILE)
@@ -91,13 +92,11 @@ public class FileStorageConfiguration {
 
         private final String basePath;
         private final String canonicalBasePath; // Cached to avoid repeated I/O
-        private final ObjectMapper objectMapper;
         private final Map<String, Long> counters = new ConcurrentHashMap<>();
         private final Map<Serializable, ReentrantLock> fileLocks = new ConcurrentHashMap<>();
 
         public FileCommonService(String basePath) {
             this.basePath = basePath;
-            this.objectMapper = new ObjectMapper();
 
             // Cache canonical base path to avoid repeated I/O operations on every file access
             try {
@@ -298,11 +297,9 @@ public class FileStorageConfiguration {
 
             List<T> results = new ArrayList<>();
             for (File file : files) {
-                // Attempt to read and deserialize each file
-                // Files that can't be deserialized to the target type are silently skipped
-                T obj = read(file, type);
-                if (obj != null) {
-                    results.add(obj);
+                Object obj = read(file, Object.class);
+                if (type.isInstance(obj)) {
+                    results.add(type.cast(obj));
                 }
             }
             return results;
@@ -356,21 +353,18 @@ public class FileStorageConfiguration {
 
         private void write(File file, Object object) {
             try {
-                objectMapper.writerWithDefaultPrettyPrinter().writeValue(file, object);
+                Files.writeString(file.toPath(), WorkflowJson.write(object));
             } catch (IOException e) {
-                throw new RuntimeException("Failed to write file: " + file, e);
+                throw new UncheckedIOException("Failed to write file: " + file, e);
             }
         }
 
+        /** A file that cannot be read is an error, never "no such case". */
         private <T> T read(File file, Class<T> clazz) {
             try {
-                return objectMapper.readValue(file, clazz);
+                return WorkflowJson.read(Files.readString(file.toPath()), clazz);
             } catch (IOException e) {
-                // Log at debug level - this is expected when files don't match the target type
-                // or when file format is incompatible
-                logger.debug("Failed to read file '{}' as {}: {}",
-                           file.getName(), clazz.getSimpleName(), e.getMessage());
-                return null;
+                throw new UncheckedIOException("Failed to read file: " + file, e);
             }
         }
     }

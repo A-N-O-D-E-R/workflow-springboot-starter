@@ -6,8 +6,6 @@ import java.util.List;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.boot.context.properties.NestedConfigurationProperty;
 
-import com.anode.workflow.spring.autoconfigure.properties.WorkflowProperties.FactoryProperties;
-
 import lombok.Data;
 
 /**
@@ -34,6 +32,10 @@ public class WorkflowEnginesProperties {
 
     private List<EngineConfig> engines = new ArrayList<>();
 
+    /** Process-wide engine settings. */
+    @NestedConfigurationProperty
+    private RuntimeProperties runtime = new RuntimeProperties();
+
     @Data
     public static class EngineConfig {
         private String name;
@@ -43,9 +45,6 @@ public class WorkflowEnginesProperties {
 
         @NestedConfigurationProperty
         private SlaProperties sla = new SlaProperties();
-
-        @NestedConfigurationProperty
-        private JpaProperties jpa = new JpaProperties();
 
         @NestedConfigurationProperty
         private EventHandlerProperties event = new EventHandlerProperties();

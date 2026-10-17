@@ -8,7 +8,7 @@ import java.lang.annotation.Target;
 
 import org.springframework.context.annotation.Conditional;
 
-import com.anode.workflow.spring.autoconfigure.properties.JpaProperties.StorageType;
+import com.anode.workflow.spring.autoconfigure.properties.StorageProperties.StorageType;
 
 /**
  * Conditional annotation that checks if any workflow engine is configured to use a specific storage type.
@@ -19,9 +19,9 @@ import com.anode.workflow.spring.autoconfigure.properties.JpaProperties.StorageT
  * <p>Example usage:
  * <pre>
  * &#64;Bean
- * &#64;ConditionalOnStorageType(StorageType.JPA)
+ * &#64;ConditionalOnStorageType(StorageType.JDBC)
  * public CommonService jpaCommonService() {
- *     // Only created if at least one engine uses JPA storage
+ *     // Only created if at least one engine uses JDBC storage
  * }
  * </pre>
  */

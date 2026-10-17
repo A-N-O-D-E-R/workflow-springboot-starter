@@ -2,7 +2,7 @@ package com.anode.workflow.spring.autoconfigure.storage;
 
 import com.anode.tool.service.CommonService;
 import com.anode.workflow.spring.autoconfigure.condition.ConditionalOnStorageType;
-import com.anode.workflow.spring.autoconfigure.properties.JpaProperties.StorageType;
+import com.anode.workflow.spring.autoconfigure.properties.StorageProperties.StorageType;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
