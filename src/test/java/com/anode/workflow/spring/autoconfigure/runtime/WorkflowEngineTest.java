@@ -21,6 +21,7 @@ import org.springframework.context.support.GenericApplicationContext;
 import org.springframework.mock.env.MockEnvironment;
 
 import java.util.*;
+import java.util.function.Supplier;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -54,11 +55,11 @@ class WorkflowEngineTest {
         taskScanner = new TaskScanner(context);
         taskScanner.init();
 
-        Map<String, RuntimeService> services = new HashMap<>();
-        services.put("default-engine", runtimeService);
-        services.put("secondary-engine", runtimeService2);
+        Map<String, Supplier<RuntimeService>> services = new LinkedHashMap<>();
+        services.put("default-engine", () -> runtimeService);
+        services.put("secondary-engine", () -> runtimeService2);
 
-        workflowEngine = new WorkflowEngine(services, taskScanner);
+        workflowEngine = new WorkflowEngine(new WorkflowRuntimes(services), taskScanner);
 
         // Setup mock to return a dummy context (lenient to avoid unnecessary stubbing errors)
         WorkflowContext mockContext = mock(WorkflowContext.class);
@@ -216,21 +217,20 @@ class WorkflowEngineTest {
         assertThatThrownBy(() -> workflowEngine.startWorkflow("case-123", "non-existent-engine",
             taskNames, variables))
             .isInstanceOf(IllegalArgumentException.class)
-            .hasMessageContaining("No RuntimeService found for engine: 'non-existent-engine'")
+            .hasMessageContaining("No workflow engine named 'non-existent-engine'")
             .hasMessageContaining("Available engines:");
     }
 
     @Test
     void shouldThrowExceptionWhenNoRuntimeServiceAvailable() {
-        Map<String, RuntimeService> emptyServices = new HashMap<>();
-        WorkflowEngine emptyEngine = new WorkflowEngine(emptyServices, taskScanner);
+        WorkflowEngine emptyEngine = new WorkflowEngine(new WorkflowRuntimes(Map.of()), taskScanner);
 
         List<String> taskNames = Arrays.asList("testTask");
         Map<String, Object> variables = Map.of("key", "value");
 
         assertThatThrownBy(() -> emptyEngine.startWorkflow("case-123", taskNames, variables))
             .isInstanceOf(IllegalStateException.class)
-            .hasMessageContaining("No RuntimeService available");
+            .hasMessageContaining("No workflow engine configured");
     }
 
     @Test
@@ -271,7 +271,6 @@ class WorkflowEngineTest {
     private GenericApplicationContext createContext() {
         GenericApplicationContext context = new GenericApplicationContext();
         MockEnvironment env = new MockEnvironment();
-        env.setProperty("workflow.scan-base-package", "com.anode.workflow.spring.autoconfigure.runtime");
         context.setEnvironment(env);
         return context;
     }

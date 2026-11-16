@@ -2,7 +2,7 @@
 com.anode.workflow.spring.autoconfigure.configuration.WorkflowAutoConfiguration
 
 # Storage auto-configurations
-com.anode.workflow.spring.autoconfigure.storage.JpaStorageConfiguration
+com.anode.workflow.spring.autoconfigure.storage.JdbcStorageConfiguration
 com.anode.workflow.spring.autoconfigure.storage.MemoryStorageConfiguration
 com.anode.workflow.spring.autoconfigure.storage.FileStorageConfiguration
 

@@ -3,11 +3,9 @@ package com.anode.workflow.spring.autoconfigure.configuration;
 import org.springframework.boot.autoconfigure.AutoConfigureAfter;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.context.annotation.Import;
 
-import com.anode.workflow.spring.autoconfigure.registry.SlaQueueManagerRegistrar;
 import com.anode.workflow.spring.autoconfigure.storage.FileStorageConfiguration;
-import com.anode.workflow.spring.autoconfigure.storage.JpaStorageConfiguration;
+import com.anode.workflow.spring.autoconfigure.storage.JdbcStorageConfiguration;
 import com.anode.workflow.spring.autoconfigure.storage.MemoryStorageConfiguration;
 
 /**
@@ -20,10 +18,8 @@ import com.anode.workflow.spring.autoconfigure.storage.MemoryStorageConfiguratio
  * <p><b>Enabled by:</b> Set {@code workflow.sla.enabled=true} (default: true) to enable this configuration.
  *
  * @see com.anode.workflow.spring.autoconfigure.annotations.SlaQueueManagerComponent
- * @see SlaQueueManagerRegistrar
  */
 @Configuration
-@Import(SlaQueueManagerRegistrar.class)
 @ConditionalOnProperty(
     prefix = "workflow.sla",
     name = "enabled",
@@ -31,7 +27,7 @@ import com.anode.workflow.spring.autoconfigure.storage.MemoryStorageConfiguratio
     matchIfMissing = true
 )
 @AutoConfigureAfter({
-        JpaStorageConfiguration.class,
+        JdbcStorageConfiguration.class,
         MemoryStorageConfiguration.class,
         FileStorageConfiguration.class
 })

@@ -7,15 +7,13 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.ApplicationContext;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.context.annotation.Import;
 
-import com.anode.workflow.service.runtime.RuntimeService;
-import com.anode.workflow.spring.autoconfigure.registry.WorkflowComponentFactoryRegistrar;
+import com.anode.workflow.spring.autoconfigure.runtime.WorkflowRuntimes;
 import com.anode.workflow.spring.autoconfigure.runtime.FluentWorkflowBuilderFactory;
 import com.anode.workflow.spring.autoconfigure.runtime.WorkflowEngine;
 import com.anode.workflow.spring.autoconfigure.scanner.TaskScanner;
 import com.anode.workflow.spring.autoconfigure.storage.FileStorageConfiguration;
-import com.anode.workflow.spring.autoconfigure.storage.JpaStorageConfiguration;
+import com.anode.workflow.spring.autoconfigure.storage.JdbcStorageConfiguration;
 import com.anode.workflow.spring.autoconfigure.storage.MemoryStorageConfiguration;
 
 /**
@@ -38,7 +36,6 @@ import com.anode.workflow.spring.autoconfigure.storage.MemoryStorageConfiguratio
  * @see FluentWorkflowBuilderFactory
  */
 @Configuration
-@Import(WorkflowComponentFactoryRegistrar.class)
 @ConditionalOnProperty(
     prefix = "workflow.factory",
     name = "enabled",
@@ -46,7 +43,7 @@ import com.anode.workflow.spring.autoconfigure.storage.MemoryStorageConfiguratio
     matchIfMissing = true
 )
 @AutoConfigureAfter({
-        JpaStorageConfiguration.class,
+        JdbcStorageConfiguration.class,
         MemoryStorageConfiguration.class,
         FileStorageConfiguration.class
 })
@@ -68,18 +65,18 @@ public class WorkflowComponentFactoryAutoConfiguration {
      *
      * <p>The engine manages workflow execution and uses all available runtime services.
      *
-     * @param runtimeServices map of configured runtime services
+     * @param runtimes the configured engines
      * @param taskScanner the task scanner
      * @param applicationContext the Spring application context
      * @return the configured workflow engine
      */
     @Bean
     public WorkflowEngine workflowEngine(
-            Map<String, RuntimeService> runtimeServices,
+            WorkflowRuntimes runtimes,
             TaskScanner taskScanner,
             ApplicationContext applicationContext
     ) {
-        WorkflowEngine engine = new WorkflowEngine(runtimeServices, taskScanner);
+        WorkflowEngine engine = new WorkflowEngine(runtimes, taskScanner);
         engine.setApplicationContext(applicationContext);
         return engine;
     }

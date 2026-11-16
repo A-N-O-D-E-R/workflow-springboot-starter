@@ -2,6 +2,7 @@ package com.anode.workflow.spring.autoconfigure.integration;
 
 import com.anode.workflow.WorkflowService;
 import com.anode.workflow.service.runtime.RuntimeService;
+import com.anode.workflow.spring.autoconfigure.runtime.WorkflowRuntimes;
 import com.anode.workflow.spring.autoconfigure.runtime.FluentWorkflowBuilderFactory;
 import com.anode.workflow.spring.autoconfigure.scanner.TaskScanner;
 import org.junit.jupiter.api.Test;
@@ -25,8 +26,7 @@ import static org.assertj.core.api.Assertions.assertThat;
         "workflow.engines[0].storage.type=memory",
         "workflow.engines[0].sla.enabled=false",
         "workflow.engines[0].event.enabled=true",
-        "workflow.engines[0].factory.enabled=true",
-        "workflow.scan-base-package=com.anode.workflow.spring.autoconfigure.integration.testapp"
+        "workflow.engines[0].factory.enabled=true"
     }
 )
 class WorkflowSpringBootIntegrationTest {
@@ -41,7 +41,7 @@ class WorkflowSpringBootIntegrationTest {
     private FluentWorkflowBuilderFactory workflowBuilderFactory;
 
     @Autowired
-    private Map<String, RuntimeService> runtimeServices;
+    private WorkflowRuntimes runtimes;
 
     @Autowired(required = false)
     private TaskScanner taskScanner;
@@ -72,14 +72,12 @@ class WorkflowSpringBootIntegrationTest {
 
     @Test
     void runtimeServicesAreCreated() {
-        assertThat(runtimeServices).isNotNull();
-        assertThat(runtimeServices).isNotEmpty();
-        assertThat(runtimeServices).containsKey("test-engine");
+        assertThat(runtimes.names()).containsExactly("test-engine");
     }
 
     @Test
     void testEngineRuntimeServiceIsConfigured() {
-        RuntimeService testEngineRuntime = runtimeServices.get("test-engine");
+        RuntimeService testEngineRuntime = runtimes.runtime("test-engine");
         assertThat(testEngineRuntime).isNotNull();
     }
 
@@ -96,7 +94,7 @@ class WorkflowSpringBootIntegrationTest {
     void allCoreBeansAreAvailable() {
         // Verify core beans
         assertThat(applicationContext.containsBean("workflowService")).isTrue();
-        assertThat(applicationContext.containsBean("runtimeServices")).isTrue();
+        assertThat(applicationContext.containsBean("workflowRuntimes")).isTrue();
         assertThat(applicationContext.containsBean("fluentWorkflowBuilderFactory")).isTrue();
 
         // Verify storage bean
@@ -106,8 +104,8 @@ class WorkflowSpringBootIntegrationTest {
     @Test
     void workflowPropertiesAreLoaded() {
         // Verify that the engines were configured from properties
-        assertThat(runtimeServices).hasSize(1);
-        assertThat(runtimeServices.get("test-engine")).isNotNull();
+        assertThat(runtimes.names()).hasSize(1);
+        assertThat(runtimes.defaultEngine()).isEqualTo("test-engine");
     }
 
     @Test

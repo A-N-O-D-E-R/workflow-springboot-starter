@@ -1,27 +1,33 @@
 package com.anode.workflow.spring.autoconfigure.properties;
 
-import com.anode.workflow.spring.autoconfigure.properties.JpaProperties.StorageType;
-
 import lombok.Data;
+import org.springframework.boot.context.properties.NestedConfigurationProperty;
 
-/**
- * Storage configuration properties.
- */
+/** Where an engine persists the state of its cases. */
 @Data
 public class StorageProperties {
 
-    /**
-     * Storage type: jpa, memory, file, or custom.
-     */
-    private StorageType type = StorageType.JPA;
+    /** Storage backends. */
+    public enum StorageType {
+        /** Durable: one JSON document per key in a relational table (PostgreSQL). */
+        JDBC,
+        /** In-memory, lost on restart: tests and demos only. */
+        MEMORY,
+        /** One JSON file per key under {@link #filePath}. */
+        FILE,
+        /** A {@code CommonService} bean of your own, named by {@link #customBeanName}. */
+        CUSTOM
+    }
 
-    /**
-     * File path for file-based storage.
-     */
+    /** Storage backend. */
+    private StorageType type = StorageType.MEMORY;
+
+    /** Directory of the FILE storage. */
     private String filePath = "./workflow-data";
 
-    /**
-     * Custom storage bean name (if type is CUSTOM).
-     */
+    /** Bean name of the CUSTOM storage. */
     private String customBeanName;
+
+    /** JDBC storage settings. */
+    @NestedConfigurationProperty private JdbcStorageProperties jdbc = new JdbcStorageProperties();
 }

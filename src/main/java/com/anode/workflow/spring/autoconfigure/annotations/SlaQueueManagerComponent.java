@@ -1,5 +1,8 @@
 package com.anode.workflow.spring.autoconfigure.annotations;
 
+import org.springframework.core.annotation.AliasFor;
+import org.springframework.stereotype.Component;
+
 import java.lang.annotation.Documented;
 import java.lang.annotation.ElementType;
 import java.lang.annotation.Retention;
@@ -21,10 +24,14 @@ import java.lang.annotation.Target;
  * }
  * </pre>
  *
- * @see com.anode.workflow.spring.autoconfigure.registry.SlaQueueManagerRegistrar
  */
 @Target(ElementType.TYPE)
 @Retention(RetentionPolicy.RUNTIME)
 @Documented
+@Component
 public @interface SlaQueueManagerComponent {
+
+    /** Bean name; derived from the class name when empty. */
+    @AliasFor(annotation = Component.class, attribute = "value")
+    String value() default "";
 }

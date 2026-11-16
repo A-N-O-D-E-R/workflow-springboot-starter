@@ -19,14 +19,14 @@
  * <h2>Example Usage</h2>
  * <pre>{@code
  * @Configuration
- * @ConditionalOnStorageType(StorageType.JPA)
- * public class JpaStorageConfiguration {
+ * @ConditionalOnStorageType(StorageType.JDBC)
+ * public class JdbcStorageConfiguration {
  *     // This configuration is only loaded when at least one
- *     // engine uses JPA storage
+ *     // engine uses JDBC storage
  *
  *     @Bean
  *     public CommonService jpaCommonService() {
- *         return new JpaCommonServiceAdapter();
+ *         return new JdbcWorkflowStore(...);
  *     }
  * }
  * }</pre>
@@ -34,12 +34,12 @@
  * <h2>Supported Storage Types</h2>
  * <ul>
  *   <li>{@code MEMORY} - In-memory storage (development/testing only)</li>
- *   <li>{@code JPA} - JPA/Hibernate-based persistent storage</li>
+ *   <li>{@code JDBC} - durable JSON documents in PostgreSQL</li>
  *   <li>{@code FILE} - File-based JSON storage (development/testing only)</li>
  * </ul>
  *
  * @see com.anode.workflow.spring.autoconfigure.storage
- * @see com.anode.workflow.spring.autoconfigure.properties.JpaProperties.StorageType
+ * @see com.anode.workflow.spring.autoconfigure.properties.StorageProperties.StorageType
  * @since 0.0.1
  */
 package com.anode.workflow.spring.autoconfigure.condition;

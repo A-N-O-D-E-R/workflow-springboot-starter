@@ -11,7 +11,7 @@
  *       Top-level configuration for all workflow engines</li>
  *   <li>{@link com.anode.workflow.spring.autoconfigure.properties.EngineProperties} -
  *       Configuration for a single workflow engine</li>
- *   <li>{@link com.anode.workflow.spring.autoconfigure.properties.JpaProperties} -
+ *   <li>{@link com.anode.workflow.spring.autoconfigure.properties.JdbcStorageProperties} -
  *       Storage configuration properties</li>
  * </ul>
  *
@@ -35,7 +35,7 @@
  * <p>Available storage types defined in {@code StorageType} enum:
  * <ul>
  *   <li><b>MEMORY:</b> In-memory storage (volatile, for testing/development)</li>
- *   <li><b>JPA:</b> JPA/Hibernate-based persistent storage (production-ready)</li>
+ *   <li><b>JDBC:</b> durable JSON documents in PostgreSQL (production)</li>
  *   <li><b>FILE:</b> File-based JSON storage (for testing/development)</li>
  * </ul>
  *
